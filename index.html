@@ -1,112 +1,124 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GalleraPro - 100% Peleas de gallos</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GalleraPro - 100% Peleas de gallos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ESTILOS GENERALES DE LA APP */
+    body {
+      font-family: 'Poppins', sans-serif;
+    }
+    .swirl-bg {
+      background-color: #111827;
+      background-image:
+        radial-gradient(at 47% 33%, hsl(200.00, 0%, 14%) 0, transparent 59%),
+        radial-gradient(at 82% 65%, hsl(215.00, 19%, 17%) 0, transparent 55%);
+    }
+
+    /* Scrollbar personalizada */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background-color: #1f2937;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #4b5563;
+      border-radius: 4px;
+      border: 2px solid #1f2937;
+    }
+
+    /* ESTADO OCULTO DEL REPORTE EN PANTALLA */
+    #printable-programming {
+      display: none;
+    }
+
+    /* CONFIGURACIÓN PROFESIONAL PARA IMPRESIÓN (A4 HORIZONTAL) */
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 8mm;
+      }
       body {
-        font-family: 'Poppins', sans-serif;
+        background: white !important;
+        color: black !important;
+        margin: 0;
+        padding: 0;
       }
-      .swirl-bg {
-        background-color: #111827;
-        background-image:
-          radial-gradient(at 47% 33%, hsl(200.00, 0%, 14%) 0, transparent 59%),
-          radial-gradient(at 82% 65%, hsl(215.00, 19%, 17%) 0, transparent 55%);
+      #root, .no-print {
+        display: none !important; /* Oculta la app y botones */
       }
-
-      /* Custom Scrollbar Styles */
-      .custom-scrollbar {
-        scrollbar-width: thin;
-        scrollbar-color: #4b5563 #1f2937; /* thumb track for Firefox */
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 8px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background-color: #1f2937; /* Tailwind gray-800 */
-        border-radius: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #4b5563; /* Tailwind gray-600 */
-        border-radius: 4px;
-        border: 2px solid #1f2937; /* Creates padding around thumb */
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background-color: #6b7280; /* Tailwind gray-500 */
-      }
-
-      /* Estilos de Impresión */
       #printable-programming {
-        display: none;
+        display: block !important; /* Muestra solo la tabla */
+        font-family: 'Courier New', Courier, monospace;
       }
+      .report-title {
+        text-align: center;
+        font-size: 22pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+      .report-subtitle {
+        text-align: center;
+        font-size: 11pt;
+        margin-bottom: 15px;
+        border-bottom: 2px solid black;
+        padding-bottom: 5px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2px solid black;
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 3px 1px;
+        text-align: center;
+        font-size: 8pt;
+      }
+      th {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact;
+        font-weight: bold;
+      }
+      .vs-cell {
+        background-color: #000 !important;
+        color: #fff !important;
+        font-weight: bold;
+        -webkit-print-color-adjust: exact;
+      }
+      .cuerda-name {
+        font-weight: bold;
+        text-align: left;
+        padding-left: 4px;
+      }
+    }
+  </style>
 
-      @media print {
-        @page {
-          size: A4 landscape;
-          margin: 10mm;
-        }
-        body {
-          background: white !important;
-          color: black !important;
-        }
-        #root, .no-print {
-          display: none !important;
-        }
-        #printable-programming {
-          display: block !important;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 10px;
-          font-size: 8pt;
-        }
-        th, td {
-          border: 1px solid black;
-          padding: 4px;
-          text-align: center;
-        }
-        th {
-          background-color: #f3f4f6 !important;
-          -webkit-print-color-adjust: exact;
-        }
-        .vs-cell {
-          font-weight: bold;
-          background-color: #fee2e2 !important;
-          -webkit-print-color-adjust: exact;
-        }
-        .header-print {
-          text-align: center;
-          margin-bottom: 15px;
-        }
-        .header-print h1 {
-          font-size: 18pt;
-          margin: 0;
-        }
-      }
-    </style>
   <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.1.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "firebase/app": "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js",
-    "firebase/analytics": "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js",
-    "firebase/": "https://esm.sh/firebase@^12.1.0/"
+  {
+    "imports": {
+      "react": "https://esm.sh/react@^19.1.0",
+      "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+      "react/": "https://esm.sh/react@^19.1.0/",
+      "firebase/app": "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js",
+      "firebase/analytics": "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js",
+      "firebase/": "https://esm.sh/firebase@^12.1.0/"
+    }
   }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+  </script>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+<body>
+  <div id="root"></div>
+  <!-- Solo una llamada al script principal -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
