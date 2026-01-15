@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MatchmakingResults, Torneo, Cuerda, Pelea, Gallo } from '../types';
-import { PencilIcon } from './Icons';
+import { PencilIcon, PrinterIcon } from './Icons';
 
 // --- Lbs.Oz Weight Conversion Utilities ---
 const OUNCES_PER_POUND = 16;
@@ -57,6 +57,10 @@ const MatchmakingScreen: React.FC<MatchmakingScreenProps> = ({ results, torneo, 
         }
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     const renderPelea = (pelea: Pelea) => (
         <div key={pelea.id} className="bg-gray-700/50 rounded-lg p-6 flex items-center justify-between fight-card">
             <div className="w-1/12 text-center text-gray-400 font-bold text-3xl">{pelea.fightNumber}</div>
@@ -91,13 +95,87 @@ const MatchmakingScreen: React.FC<MatchmakingScreenProps> = ({ results, torneo, 
 
     return (
         <div className="space-y-6">
-            <div className="text-center">
+            {/* Componente de Impresión Oculto */}
+            <div id="printable-programming">
+                <div className="header-print">
+                    <h1>{torneo.name}</h1>
+                    <p>Programación de Peleas - Fecha: {torneo.date}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowSpan={2}>No.</th>
+                            <th colSpan={8}>Gallo A</th>
+                            <th className="vs-cell" rowSpan={2}>VS</th>
+                            <th colSpan={8}>Gallo B</th>
+                        </tr>
+                        <tr>
+                            <th>Cuerda</th>
+                            <th>Anillo (A)</th>
+                            <th>Placa (Pm)</th>
+                            <th>Placa (Pc)</th>
+                            <th>Color</th>
+                            <th>Fenotipo</th>
+                            <th>Tipo (P/G)</th>
+                            <th>Peso (Lb.Oz)</th>
+                            
+                            <th>Cuerda</th>
+                            <th>Anillo (A)</th>
+                            <th>Placa (Pm)</th>
+                            <th>Placa (Pc)</th>
+                            <th>Color</th>
+                            <th>Fenotipo</th>
+                            <th>Tipo (P/G)</th>
+                            <th>Peso (Lb.Oz)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {results.mainFights.map((p) => (
+                            <tr key={p.id}>
+                                <td>{p.fightNumber}</td>
+                                {/* Gallo A */}
+                                <td>{getCuerdaName(p.roosterA.cuerdaId)}</td>
+                                <td>{p.roosterA.ringId}</td>
+                                <td>{p.roosterA.markingId}</td>
+                                <td>{p.roosterA.breederPlateId}</td>
+                                <td>{p.roosterA.color}</td>
+                                <td>{p.roosterA.tipoGallo}</td>
+                                <td>{p.roosterA.tipoEdad}</td>
+                                <td>{formatWeightLbsOz(p.roosterA.weight)}</td>
+                                
+                                <td className="vs-cell">VS</td>
+
+                                {/* Gallo B */}
+                                <td>{getCuerdaName(p.roosterB.cuerdaId)}</td>
+                                <td>{p.roosterB.ringId}</td>
+                                <td>{p.roosterB.markingId}</td>
+                                <td>{p.roosterB.breederPlateId}</td>
+                                <td>{p.roosterB.color}</td>
+                                <td>{p.roosterB.tipoGallo}</td>
+                                <td>{p.roosterB.tipoEdad}</td>
+                                <td>{formatWeightLbsOz(p.roosterB.weight)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div className="text-center no-print">
                 <h2 className="text-3xl font-bold text-white">Cartelera de Peleas</h2>
                 <p className="text-gray-400 mt-2">Este es el resultado del cotejo. Revisa las peleas y comienza el torneo.</p>
             </div>
             
-            <div className="bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4">
-                <h3 className="text-xl font-bold text-amber-400 mb-3">Estadísticas de la Contienda</h3>
+            <div className="bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4 no-print">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                    <h3 className="text-xl font-bold text-amber-400">Estadísticas de la Contienda</h3>
+                    <button 
+                        onClick={handlePrint}
+                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-all shadow-lg"
+                    >
+                        <PrinterIcon className="w-5 h-5" />
+                        <span>Imprimir Programación</span>
+                    </button>
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                     <div className="bg-gray-700/50 p-3 rounded-lg">
                         <p className="text-2xl font-bold text-white">{autoFightsCount}</p>
@@ -118,7 +196,7 @@ const MatchmakingScreen: React.FC<MatchmakingScreenProps> = ({ results, torneo, 
                 </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 no-print">
                 <h3 className="text-xl font-bold text-amber-400">Cartelera Principal</h3>
                 {results.mainFights.length > 0 ? (
                     <div className="space-y-2">
@@ -130,7 +208,7 @@ const MatchmakingScreen: React.FC<MatchmakingScreenProps> = ({ results, torneo, 
             </div>
 
             {!isReadOnly && totalRoostersForIndividualRound > 0 && (
-                <div className="bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4 mt-8">
+                <div className="bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4 mt-8 no-print">
                     <h3 className="text-xl font-bold text-amber-400 mb-4">Contiendas Manuales</h3>
 
                     {results.unpairedRoosters.length > 0 && (
@@ -206,7 +284,7 @@ const MatchmakingScreen: React.FC<MatchmakingScreenProps> = ({ results, torneo, 
 
                 </div>
             )}
-            <div className="flex justify-between items-center mt-8">
+            <div className="flex justify-between items-center mt-8 no-print">
                 <button onClick={onBack} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg">Atrás</button>
                 <div>
                     {!isReadOnly && (
