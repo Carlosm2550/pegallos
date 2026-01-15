@@ -1,49 +1,148 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GalleraPro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Poppins', sans-serif; background-color: #111827; color: white; }
-    #printable-programming { display: none; } /* Oculto en pantalla */
-
-    @media print {
-      @page { size: A4 landscape; margin: 10mm; }
-      html, body { background: white !important; color: black !important; }
-      #root, .no-print { display: none !important; } /* Oculta todo lo oscuro de la app */
-
-      #printable-programming { 
-        display: block !important; 
-        width: 100%; 
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GalleraPro - 100% Peleas de gallos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Poppins', sans-serif;
       }
-      .report-title { text-align: center; font-size: 20pt; font-weight: bold; margin-bottom: 5px; color: black; }
-      .report-subtitle { text-align: center; font-size: 11pt; margin-bottom: 15px; border-bottom: 2px solid black; padding-bottom: 5px; color: black; }
-      
-      table { width: 100%; border-collapse: collapse; border: 2px solid black; }
-      th, td { border: 1px solid black !important; padding: 4px 2px; text-align: center; font-size: 8pt; color: black; }
-      th { background-color: #f0f0f0 !important; font-weight: bold; -webkit-print-color-adjust: exact; }
-      .vs-cell { background-color: #000 !important; color: white !important; font-weight: bold; -webkit-print-color-adjust: exact; width: 30px; }
-      .cuerda-name { font-weight: bold; text-align: left; padding-left: 5px; }
-    }
-  </style>
+      .swirl-bg {
+        background-color: #111827;
+        background-image:
+          radial-gradient(at 47% 33%, hsl(200.00, 0%, 14%) 0, transparent 59%),
+          radial-gradient(at 82% 65%, hsl(215.00, 19%, 17%) 0, transparent 55%);
+      }
+
+      /* Custom Scrollbar Styles */
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #4b5563 #1f2937; /* thumb track for Firefox */
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background-color: #1f2937; /* Tailwind gray-800 */
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #4b5563; /* Tailwind gray-600 */
+        border-radius: 4px;
+        border: 2px solid #1f2937; /* Creates padding around thumb */
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #6b7280; /* Tailwind gray-500 */
+      }
+
+      /* Estilos de Impresión */
+      #printable-programming {
+        display: none;
+      }
+
+      @media print {
+        @page {
+          size: A4 landscape;
+          margin: 5mm;
+        }
+        
+        body {
+          background: white !important;
+          color: black !important;
+          margin: 0;
+          padding: 0;
+        }
+
+        /* Ocultar elementos innecesarios */
+        .no-print, 
+        header, 
+        footer, 
+        .swirl-bg > div:not(main),
+        main > div:not(#printable-programming) {
+          display: none !important;
+        }
+
+        /* Asegurar que el contenedor de impresión sea visible */
+        #printable-programming {
+          display: block !important;
+          width: 100% !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+        }
+
+        .report-title {
+          text-align: center;
+          font-size: 20pt;
+          font-weight: bold;
+          margin-bottom: 2pt;
+          text-transform: uppercase;
+        }
+
+        .report-subtitle {
+          text-align: center;
+          font-size: 12pt;
+          margin-bottom: 10pt;
+          border-bottom: 2px solid black;
+          padding-bottom: 5pt;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 7.5pt;
+        }
+
+        th, td {
+          border: 1px solid black;
+          padding: 3pt 2pt;
+          text-align: center;
+          word-wrap: break-word;
+          overflow: hidden;
+        }
+
+        th {
+          background-color: #f0f0f0 !important;
+          -webkit-print-color-adjust: exact;
+          font-weight: bold;
+        }
+
+        .vs-cell {
+          background-color: #ffeded !important;
+          -webkit-print-color-adjust: exact;
+          font-weight: bold;
+          width: 25pt;
+        }
+
+        .cuerda-name {
+          font-weight: bold;
+          font-size: 8pt;
+        }
+      }
+    </style>
   <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@^19.1.0",
-      "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-      "react/": "https://esm.sh/react@^19.1.0/",
-      "firebase/app": "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js",
-      "firebase/analytics": "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js",
-      "firebase/": "https://esm.sh/firebase@^12.1.0/"
-    }
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "firebase/app": "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js",
+    "firebase/analytics": "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js",
+    "firebase/": "https://esm.sh/firebase@^12.1.0/"
   }
-  </script>
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
-<body>
-  <div id="root"></div>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
