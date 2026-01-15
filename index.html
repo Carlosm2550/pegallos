@@ -39,6 +39,56 @@
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background-color: #6b7280; /* Tailwind gray-500 */
       }
+
+      /* Estilos de Impresión */
+      #printable-programming {
+        display: none;
+      }
+
+      @media print {
+        @page {
+          size: A4 landscape;
+          margin: 10mm;
+        }
+        body {
+          background: white !important;
+          color: black !important;
+        }
+        #root, .no-print {
+          display: none !important;
+        }
+        #printable-programming {
+          display: block !important;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+          font-size: 8pt;
+        }
+        th, td {
+          border: 1px solid black;
+          padding: 4px;
+          text-align: center;
+        }
+        th {
+          background-color: #f3f4f6 !important;
+          -webkit-print-color-adjust: exact;
+        }
+        .vs-cell {
+          font-weight: bold;
+          background-color: #fee2e2 !important;
+          -webkit-print-color-adjust: exact;
+        }
+        .header-print {
+          text-align: center;
+          margin-bottom: 15px;
+        }
+        .header-print h1 {
+          font-size: 18pt;
+          margin: 0;
+        }
+      }
     </style>
   <script type="importmap">
 {
@@ -52,11 +102,9 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>
