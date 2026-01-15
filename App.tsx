@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Screen, Cuerda, Gallo, Pelea, Torneo, MatchmakingResults, TipoGallo, TipoEdad, Notification, DailyResult } from './types';
 import { TrophyIcon } from './components/Icons';
-import { demoCuerdas, demoGallos } from './demo-data';
 
 import SetupScreen from './components/SetupScreen';
 import MatchmakingScreen from './components/MatchmakingScreen';
@@ -9,6 +8,7 @@ import LiveFightScreen from './components/LiveFightScreen';
 import ResultsScreen from './components/ResultsScreen';
 import TournamentResultsScreen from './components/TournamentResultsScreen';
 import Toaster from './components/Toaster';
+import { DEMO_CUERDAS, DEMO_GALLOS } from './demo-data';
 
 // --- TYPE DEFINITIONS ---
 export interface CuerdaFormData {
@@ -112,13 +112,13 @@ const App: React.FC = () => {
     const [isMatchmaking, setIsMatchmaking] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
      const [torneo, setTorneo] = useState<Torneo>({
-        name: 'Nuevo Torneo',
+        name: 'Torneo de Exhibición',
         date: new Date().toISOString().split('T')[0],
         weightTolerance: 1, // 1 ounce
-        ageToleranceMonths: 1,
-        minWeight: fromLbsOz(2, 10),
-        maxWeight: fromLbsOz(5, 0),
-        roostersPerTeam: 2,
+        ageToleranceMonths: 2,
+        minWeight: fromLbsOz(2, 12),
+        maxWeight: fromLbsOz(5, 4),
+        roostersPerTeam: 10,
         pointsForWin: 3,
         pointsForDraw: 1,
         tournamentDays: 1,
@@ -157,11 +157,6 @@ const App: React.FC = () => {
                 setDailyResults(savedDailyResults ? JSON.parse(savedDailyResults) : []);
                 setCurrentDay(loadedCurrentDay);
                 setViewingDay(loadedCurrentDay);
-            } else {
-                // Si no hay datos, cargar los de prueba
-                setCuerdas(demoCuerdas);
-                setGallosByDay({ 1: demoGallos });
-                addNotification('Se han cargado 50 gallos de prueba para ensayar el sistema.', 'info', 5000);
             }
         } catch (error) {
             console.error("Failed to load data from localStorage", error);
@@ -188,6 +183,14 @@ const App: React.FC = () => {
 
     const handleUpdateTorneo = useCallback((updatedTorneo: Torneo) => setTorneo(updatedTorneo), []);
 
+    const handleLoadDemoData = useCallback(() => {
+        if (window.confirm('¿Deseas cargar los 100 gallos y 10 criaderos de prueba? Esto sobrescribirá tus datos actuales del Día 1.')) {
+            setCuerdas(DEMO_CUERDAS);
+            setGallosByDay(prev => ({ ...prev, [currentDay]: DEMO_GALLOS }));
+            addNotification('Datos de prueba cargados exitosamente.', 'success');
+        }
+    }, [currentDay, addNotification]);
+
     const handleSaveCuerda = useCallback((cuerdaData: CuerdaFormData, currentCuerdaId: string | null) => {
         const { name, owner, city, frontCount } = cuerdaData;
         
@@ -204,7 +207,7 @@ const App: React.FC = () => {
             if (frontCount < existingFronts.length) {
                 const frontsToRemove = existingFronts.slice(frontCount);
                 const frontIdsToRemove = new Set(frontsToRemove.map(f => f.id));
-                const gallosInFrontsToRemoveCount = (Object.values(gallosByDay).flat() as Gallo[]).filter(g => frontIdsToRemove.has(g.cuerdaId)).length;
+                const gallosInFrontsToRemoveCount = Object.values(gallosByDay).flat().filter((g: Gallo) => frontIdsToRemove.has(g.cuerdaId)).length;
 
 
                 let confirmMessage = `Va a reducir el número de frentes a ${frontCount}. ${frontsToRemove.length} frente(s) será(n) eliminado(s).`;
@@ -283,7 +286,7 @@ const App: React.FC = () => {
             return;
         }
     
-        const associatedRoostersCount = (Object.values(gallosByDay).flat() as Gallo[]).filter(g => g.cuerdaId === cuerdaIdToDelete).length;
+        const associatedRoostersCount = Object.values(gallosByDay).flat().filter((g: Gallo) => g.cuerdaId === cuerdaIdToDelete).length;
         let confirmMessage = `¿Está seguro de que desea eliminar el frente "${cuerdaToDelete.name}"?`;
         if (associatedRoostersCount > 0) {
             confirmMessage += ` ${associatedRoostersCount} gallo(s) asignado(s) a él también será(n) eliminado(s) de todos los días.`;
@@ -445,7 +448,7 @@ const App: React.FC = () => {
     const handleFinishTournament = useCallback(() => { // For early exit
         const finishedFightsForDay = (peleasByDay[currentDay] || []).filter(p => p.winner !== null);
         setDailyResults(prev => {
-            const otherDays = prev.filter(r => r.day === currentDay ? false : true);
+            const otherDays = prev.filter(r => r.day !== currentDay);
             if (finishedFightsForDay.length > 0) {
                 return [...otherDays, { day: currentDay, peleas: finishedFightsForDay }].sort((a, b) => a.day - b.day);
             }
@@ -462,7 +465,7 @@ const App: React.FC = () => {
             setDailyResults([]);
             setCurrentDay(1);
             setViewingDay(1);
-            setTorneo(prev => ({ ...prev, name: 'Nuevo Torneo', date: new Date().toISOString().split('T')[0] }));
+            setTorneo(prev => ({ ...prev, name: 'Torneo de Exhibición', date: new Date().toISOString().split('T')[0] }));
             setScreen(Screen.SETUP);
             addNotification('Datos del torneo anterior borrados. ¡Listo para empezar uno nuevo!', 'success');
         }
@@ -553,6 +556,7 @@ const App: React.FC = () => {
                     onGoToMatchmaking={() => setScreen(Screen.MATCHMAKING)}
                     isReadOnly={isReadOnly}
                     matchmakingResultsExist={!!viewingMatchmakingResults}
+                    onLoadDemoData={handleLoadDemoData}
                 />;
         }
     };

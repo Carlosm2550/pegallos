@@ -138,9 +138,8 @@ const ConflictModal: React.FC<ConflictModalProps> = ({ isOpen, onClose, torneo, 
     );
 
     const exceptionOptions = useMemo<ExceptionOption[]>(() => {
-        // Fix: Explicitly type cityList as string[] and use Array.from with a typed Set to fix unknown assignment error on line 142.
-        const cityList: string[] = baseCuerdas.map(c => c.city).filter((c): c is string => c !== 'N/A');
-        const uniqueCities: string[] = Array.from(new Set<string>(cityList)).sort();
+        // Fix: Explicitly type uniqueCities as string array and use Set<string> with Array.from to ensure correct type inference.
+        const uniqueCities: string[] = Array.from(new Set<string>(baseCuerdas.map(c => c.city).filter(c => c !== 'N/A'))).sort();
         const cityOptions: ExceptionOption[] = uniqueCities.map(city => ({
             id: `city_${city}`,
             type: 'city',

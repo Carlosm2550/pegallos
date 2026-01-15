@@ -162,12 +162,34 @@ const CuerdaFormModal: React.FC<{
     );
 };
 
+const PrintablePlanilla: React.FC<{ torneo: Torneo }> = ({ torneo }) => (
+    <div id="printable-planilla" className="p-8 space-y-6 bg-white text-black text-lg">
+        <div className="text-center border-b-2 border-black pb-4">
+            <h1 className="text-4xl font-bold">{torneo.name}</h1>
+            <p className="text-2xl mt-2">{torneo.tournamentManager ? `Responsable: ${torneo.tournamentManager}` : ''}</p>
+            <p className="text-xl mt-1">{torneo.date}</p>
+        </div>
+        <div className="space-y-8 pt-4">
+            {[
+                "Nombre del Criadero:", "Dueño de los gallos:", "Frente:", "ID del Anillo (A):", "Número de Placa Marcaje (Pm):", "Placa del Criadero (Pc):", "Color del Gallo:",
+                "Peso:", "Edad (meses):", "Tipo (Pollo/Gallo):", "Fenotipo (Liso/Pava):"
+            ].map(label => (
+                <div key={label} className="flex items-center space-x-4">
+                    <label className="font-bold w-1/3">{label}</label>
+                    <div className="border-b-2 border-dotted border-black flex-grow h-8"></div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 const TournamentRulesForm: React.FC<{
     torneo: Torneo;
     onUpdateTorneo: (updatedTorneo: Torneo) => void;
+    onPrintPlanilla: () => void;
     onOpenConflictModal: () => void;
     isReadOnly: boolean;
-}> = React.memo(({ torneo, onUpdateTorneo, onOpenConflictModal, isReadOnly }) => {
+}> = React.memo(({ torneo, onUpdateTorneo, onPrintPlanilla, onOpenConflictModal, isReadOnly }) => {
     
     const handleUpdate = (field: keyof Torneo, value: any) => {
         let newTorneoData = { ...torneo, [field]: value };
@@ -191,6 +213,11 @@ const TournamentRulesForm: React.FC<{
             <InputField label="Responsable del Torneo" value={torneo.tournamentManager || ''} onChange={e => handleUpdate('tournamentManager', e.target.value)} disabled={isReadOnly} />
             <InputField type="date" label="Fecha" value={torneo.date} onChange={e => handleUpdate('date', e.target.value)} disabled={isReadOnly} />
             <InputField type="number" label="Número de Días del Torneo" value={torneo.tournamentDays} onChange={e => handleUpdate('tournamentDays', Math.max(1, parseInt(e.target.value, 10) || 1))} min="1" disabled={isReadOnly}/>
+            <div className="pt-2">
+                <button onClick={onPrintPlanilla} type="button" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                    Imprimir Planilla de Ingreso
+                </button>
+            </div>
             
            <h4 className="text-md font-semibold text-amber-300 mt-4 border-t border-gray-700 pt-4">Tolerancias</h4>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -268,12 +295,13 @@ interface SetupScreenProps {
     onGoToMatchmaking: () => void;
     isReadOnly: boolean;
     matchmakingResultsExist: boolean;
+    onLoadDemoData: () => void;
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ 
     cuerdas, gallos, torneo, viewingDay, currentDay, dailyResults, onUpdateTorneo, onStartMatchmaking, 
     onSaveCuerda, onDeleteCuerda, onSaveGallo, onAddSingleGallo, onDeleteGallo, isMatchmaking, 
-    onFullReset, onGoToResults, onGoToMatchmaking, isReadOnly, matchmakingResultsExist
+    onFullReset, onGoToResults, onGoToMatchmaking, isReadOnly, matchmakingResultsExist, onLoadDemoData
 }) => {
     const [isCuerdaModalOpen, setCuerdaModalOpen] = useState(false);
     const [isGalloModalOpen, setGalloModalOpen] = useState(false);
@@ -330,6 +358,17 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         return grouped;
     }, [gallos]);
 
+    const handlePrintPlanilla = useCallback(() => {
+        const printableContainer = document.querySelector('.printable-planilla-container');
+        if (printableContainer) {
+            document.body.classList.add('printing-planilla');
+            window.print();
+            document.body.classList.remove('printing-planilla');
+        } else {
+            console.error('Error al encontrar la planilla para imprimir.');
+        }
+    }, []);
+
     const isCurrentDayFinished = dailyResults.some(r => r.day === currentDay);
     const isTournamentFinished = dailyResults.length >= torneo.tournamentDays;
 
@@ -367,19 +406,29 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                                 <h3 className="text-lg sm:text-xl font-bold text-white">Reglas Del Torneo</h3>
                             </div>
                             {!isReadOnly && (
-                                <button
-                                    onClick={onFullReset}
-                                    title="Reiniciar aplicación y borrar todos los datos"
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                >
-                                    <RepeatIcon className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={onLoadDemoData}
+                                        title="Cargar 100 gallos y cuerdas de prueba"
+                                        className="text-gray-400 hover:text-blue-400 transition-colors p-1"
+                                    >
+                                        <PlusIcon className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={onFullReset}
+                                        title="Reiniciar aplicación y borrar todos los datos"
+                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                    >
+                                        <RepeatIcon className="w-5 h-5" />
+                                    </button>
+                                </div>
                             )}
                         </div>
                         <div>
                             <TournamentRulesForm
                                 torneo={torneo}
                                 onUpdateTorneo={onUpdateTorneo}
+                                onPrintPlanilla={handlePrintPlanilla}
                                 onOpenConflictModal={() => setConflictModalOpen(true)}
                                 isReadOnly={isReadOnly}
                             />
@@ -478,28 +527,38 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                                 Ver Clasificación Final
                             </button>
                         ) : (
-                            <button 
-                                onClick={onStartMatchmaking} 
-                                disabled={isMatchmaking || activeRoosterCount < 2 || isCurrentDayFinished}
-                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
-                            >
-                               {isMatchmaking ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Cotejando...
-                                    </>
-                               ) : (
-                                   <>
-                                    <PlayIcon className="w-6 h-6 mr-2"/>
-                                    {isCurrentDayFinished ? `Día ${currentDay} Finalizado` : `Iniciar Baloteo (Día ${currentDay})`}
-                                   </>
-                               )}
-                            </button>
+                            <div className="flex flex-col items-center gap-4">
+                                <button 
+                                    onClick={onStartMatchmaking} 
+                                    disabled={isMatchmaking || activeRoosterCount < 2 || isCurrentDayFinished}
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
+                                >
+                                   {isMatchmaking ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Cotejando...
+                                        </>
+                                   ) : (
+                                       <>
+                                        <PlayIcon className="w-6 h-6 mr-2"/>
+                                        {isCurrentDayFinished ? `Día ${currentDay} Finalizado` : `Iniciar Baloteo (Día ${currentDay})`}
+                                       </>
+                                   )}
+                                </button>
+                                {activeRoosterCount === 0 && !isReadOnly && (
+                                    <button 
+                                        onClick={onLoadDemoData}
+                                        className="text-blue-400 hover:text-blue-300 text-sm font-medium underline transition-colors"
+                                    >
+                                        ¿Quieres cargar 100 gallos de prueba para empezar rápido?
+                                    </button>
+                                )}
+                            </div>
                         )}
-                        {!isReadOnly && !isCurrentDayFinished && activeRoosterCount < 2 && <p className="text-xs text-gray-500 mt-2">Se necesitan al menos 2 gallos para empezar.</p>}
+                        {!isReadOnly && !isCurrentDayFinished && activeRoosterCount < 2 && activeRoosterCount > 0 && <p className="text-xs text-gray-500 mt-2">Se necesitan al menos 2 gallos para empezar.</p>}
                     </div>
                 </div>
             </div>
@@ -533,6 +592,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                 onUpdateTorneo={onUpdateTorneo}
                 isReadOnly={isReadOnly}
             />
+
+             <div className="printable-planilla-container">
+                <PrintablePlanilla torneo={torneo} />
+            </div>
         </div>
     );
 };
