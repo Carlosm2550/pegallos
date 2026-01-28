@@ -1,7 +1,3 @@
-
-
-
-
 export enum Screen {
   SETUP,
   MATCHMAKING,
@@ -26,6 +22,7 @@ export interface Cuerda {
   name: string;
   owner: string;
   city?: string;
+  breederPlateId?: string; // Identificador único de la placa del criadero (Pc)
   baseCuerdaId?: string; // ID of the original Cuerda. If it's a front.
 }
 

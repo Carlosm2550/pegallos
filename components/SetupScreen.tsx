@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Cuerda, Gallo, Torneo, DailyResult } from '../types';
 import { SettingsIcon, RoosterIcon, UsersIcon, PlusIcon, TrashIcon, PencilIcon, PlayIcon, WarningIcon, RepeatIcon, TrophyIcon } from './Icons';
@@ -6,6 +7,7 @@ import { CuerdaFormData } from '../App';
 import GalloFormModal, { LbsOzInput, InputField } from './GalloFormModal';
 import { allCities } from '../constants';
 import ConflictModal from './ConflictModal';
+import AiImportModal from './AiImportModal';
 
 
 // --- Lbs.Oz Weight Conversion Utilities ---
@@ -35,24 +37,28 @@ interface SectionCardProps {
   children: React.ReactNode;
   className?: string;
   isReadOnly?: boolean;
+  extraButton?: React.ReactNode;
 }
-const SectionCard: React.FC<SectionCardProps> = ({ icon, title, buttonText, onButtonClick, children, className, isReadOnly = false }) => (
+const SectionCard: React.FC<SectionCardProps> = ({ icon, title, buttonText, onButtonClick, children, className, isReadOnly = false, extraButton }) => (
   <div className={`bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4 sm:p-6 ${className}`}>
     <div className="flex justify-between items-center mb-4">
       <div className="flex items-center space-x-3">
         <div className="text-amber-400 w-6 h-6">{icon}</div>
         <h3 className="text-lg sm:text-xl font-bold text-white">{title}</h3>
       </div>
-      {buttonText && onButtonClick && (
-        <button
-          onClick={onButtonClick}
-          disabled={isReadOnly}
-          className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors text-sm sm:text-base disabled:bg-gray-600 disabled:cursor-not-allowed"
-        >
-          <PlusIcon className="w-5 h-5" />
-          <span>{buttonText}</span>
-        </button>
-      )}
+      <div className="flex items-center space-x-2">
+        {extraButton}
+        {buttonText && onButtonClick && (
+            <button
+            onClick={onButtonClick}
+            disabled={isReadOnly}
+            className="flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors text-sm sm:text-base disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+            <PlusIcon className="w-5 h-5" />
+            <span>{buttonText}</span>
+            </button>
+        )}
+      </div>
     </div>
     <div>{children}</div>
   </div>
@@ -70,9 +76,9 @@ const CuerdaFormModal: React.FC<{
     const [owner, setOwner] = useState('');
     const [city, setCity] = useState('');
     const [frontCount, setFrontCount] = useState(1);
+    const [breederPlateId, setBreederPlateId] = useState('');
     const isAdding = !cuerda;
 
-    // State for custom city combobox
     const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
     const cityInputRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +94,7 @@ const CuerdaFormModal: React.FC<{
                 setName(baseName);
                 setOwner(cuerda.owner || '');
                 setCity(cuerda.city === 'N/A' ? '' : cuerda.city || '');
+                setBreederPlateId(cuerda.breederPlateId || '');
                 const relatedCuerdas = cuerdas.filter(c => c.name.startsWith(baseName + " (F"));
                 setFrontCount(relatedCuerdas.length || 1);
             } else { // Adding
@@ -95,8 +102,9 @@ const CuerdaFormModal: React.FC<{
                 setOwner('');
                 setCity('');
                 setFrontCount(1);
+                setBreederPlateId('');
             }
-            setIsCityDropdownOpen(false); // Reset dropdown state on open
+            setIsCityDropdownOpen(false);
         }
     }, [isOpen, cuerda, cuerdas]);
 
@@ -113,7 +121,7 @@ const CuerdaFormModal: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const finalCity = city.trim() === '' ? 'N/A' : city;
-        onSave({ name, owner, city: finalCity, frontCount }, cuerda?.id || null);
+        onSave({ name, owner, city: finalCity, frontCount, breederPlateId: breederPlateId.trim() || 'N/A' }, cuerda?.id || null);
         onClose();
     };
 
@@ -122,8 +130,8 @@ const CuerdaFormModal: React.FC<{
             <form onSubmit={handleSubmit} className="space-y-6">
                 <InputField label="Nombre de la Cuerda" value={name} onChange={e => setName(e.target.value)} required />
                 <InputField label="Dueño" value={owner} onChange={e => setOwner(e.target.value)} required />
+                <InputField label="Placa del Criadero (Pc)" value={breederPlateId} onChange={e => setBreederPlateId(e.target.value)} placeholder="Ej: Criadero San José 001" />
                 
-                {/* Custom City ComboBox */}
                 <div ref={cityInputRef} className="relative">
                     <label htmlFor="ciudad-input" className="block text-sm font-medium text-gray-400 mb-1">Ciudad</label>
                     <input
@@ -162,34 +170,12 @@ const CuerdaFormModal: React.FC<{
     );
 };
 
-const PrintablePlanilla: React.FC<{ torneo: Torneo }> = ({ torneo }) => (
-    <div id="printable-planilla" className="p-8 space-y-6 bg-white text-black text-lg">
-        <div className="text-center border-b-2 border-black pb-4">
-            <h1 className="text-4xl font-bold">{torneo.name}</h1>
-            <p className="text-2xl mt-2">{torneo.tournamentManager ? `Responsable: ${torneo.tournamentManager}` : ''}</p>
-            <p className="text-xl mt-1">{torneo.date}</p>
-        </div>
-        <div className="space-y-8 pt-4">
-            {[
-                "Nombre del Criadero:", "Dueño de los gallos:", "Frente:", "ID del Anillo (A):", "Número de Placa Marcaje (Pm):", "Placa del Criadero (Pc):", "Color del Gallo:",
-                "Peso:", "Edad (meses):", "Tipo (Pollo/Gallo):", "Fenotipo (Liso/Pava):"
-            ].map(label => (
-                <div key={label} className="flex items-center space-x-4">
-                    <label className="font-bold w-1/3">{label}</label>
-                    <div className="border-b-2 border-dotted border-black flex-grow h-8"></div>
-                </div>
-            ))}
-        </div>
-    </div>
-);
-
 const TournamentRulesForm: React.FC<{
     torneo: Torneo;
     onUpdateTorneo: (updatedTorneo: Torneo) => void;
-    onPrintPlanilla: () => void;
     onOpenConflictModal: () => void;
     isReadOnly: boolean;
-}> = React.memo(({ torneo, onUpdateTorneo, onPrintPlanilla, onOpenConflictModal, isReadOnly }) => {
+}> = React.memo(({ torneo, onUpdateTorneo, onOpenConflictModal, isReadOnly }) => {
     
     const handleUpdate = (field: keyof Torneo, value: any) => {
         let newTorneoData = { ...torneo, [field]: value };
@@ -213,11 +199,6 @@ const TournamentRulesForm: React.FC<{
             <InputField label="Responsable del Torneo" value={torneo.tournamentManager || ''} onChange={e => handleUpdate('tournamentManager', e.target.value)} disabled={isReadOnly} />
             <InputField type="date" label="Fecha" value={torneo.date} onChange={e => handleUpdate('date', e.target.value)} disabled={isReadOnly} />
             <InputField type="number" label="Número de Días del Torneo" value={torneo.tournamentDays} onChange={e => handleUpdate('tournamentDays', Math.max(1, parseInt(e.target.value, 10) || 1))} min="1" disabled={isReadOnly}/>
-            <div className="pt-2">
-                <button onClick={onPrintPlanilla} type="button" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                    Imprimir Planilla de Ingreso
-                </button>
-            </div>
             
            <h4 className="text-md font-semibold text-amber-300 mt-4 border-t border-gray-700 pt-4">Tolerancias</h4>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -225,10 +206,9 @@ const TournamentRulesForm: React.FC<{
                 label="Tolerancia de Peso (± Onza)" 
                 value={torneo.weightTolerance} 
                 onChange={v => handleUpdate('weightTolerance', v)} 
-                showGrid={false}
                 disabled={isReadOnly}
               />
-              <InputField type="number" label="Tolerancia de Meses (±) (solo pollos)" value={torneo.ageToleranceMonths} onChange={e => handleUpdate('ageToleranceMonths', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly}/>
+              <InputField type="number" label="Tolerancia de Meses (±) (solo pollos)" value={torneo.ageToleranceMonths} onChange={e => handleUpdate('ageToleranceMonths', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly} inputClassName="text-gray-200 font-bold"/>
            </div>
            
            <h4 className="text-md font-semibold text-amber-300 mt-4 border-t border-gray-700 pt-4">Pesos Permitidos</h4>
@@ -237,14 +217,12 @@ const TournamentRulesForm: React.FC<{
                     label="Mínimo (Lb.Oz)" 
                     value={torneo.minWeight} 
                     onChange={v => handleUpdate('minWeight', v)} 
-                    showGrid={false}
                     disabled={isReadOnly}
                 />
                <LbsOzInput 
                     label="Máximo (Lb.Oz)" 
                     value={torneo.maxWeight} 
                     onChange={v => handleUpdate('maxWeight', v)} 
-                    showGrid={false}
                     disabled={isReadOnly}
                 />
            </div>
@@ -252,9 +230,9 @@ const TournamentRulesForm: React.FC<{
            <div className="border-t border-gray-700 pt-4 mt-4">
                 <h4 className="text-md font-semibold text-amber-300">Reglas del Torneo por Frentes</h4>
                 <div className="space-y-4 mt-2">
-                    <InputField type="number" label="Gallos por Frente" value={torneo.roostersPerTeam} onChange={e => handleUpdate('roostersPerTeam', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly}/>
-                    <InputField type="number" label="Puntos por Victoria" value={torneo.pointsForWin} onChange={e => handleUpdate('pointsForWin', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly}/>
-                    <InputField type="number" label="Puntos por Empate" value={torneo.pointsForDraw} onChange={e => handleUpdate('pointsForDraw', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly}/>
+                    <InputField type="number" label="Gallos por Frente" value={torneo.roostersPerTeam} onChange={e => handleUpdate('roostersPerTeam', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly} inputClassName="text-gray-200 font-bold"/>
+                    <InputField type="number" label="Puntos por Victoria" value={torneo.pointsForWin} onChange={e => handleUpdate('pointsForWin', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly} inputClassName="text-gray-200 font-bold"/>
+                    <InputField type="number" label="Puntos por Empate" value={torneo.pointsForDraw} onChange={e => handleUpdate('pointsForDraw', parseInt(e.target.value) || 0)} min="0" disabled={isReadOnly} inputClassName="text-gray-200 font-bold"/>
                 
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Excepciones de Cotejo</label>
@@ -285,6 +263,7 @@ interface SetupScreenProps {
     onUpdateTorneo: (updatedTorneo: Torneo) => void;
     onStartMatchmaking: () => void; 
     onSaveCuerda: (cuerdaData: CuerdaFormData, currentCuerdaId: string | null) => void;
+    onImportCuerdaAndGallos: (cuerdaData: CuerdaFormData, gallosByFront: { frontNumber: number, gallos: Omit<Gallo, 'id' | 'tipoEdad'>[] }[]) => void;
     onDeleteCuerda: (cuerdaId: string) => void;
     onSaveGallo: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, currentGalloId: string) => void;
     onAddSingleGallo: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>) => void;
@@ -295,17 +274,19 @@ interface SetupScreenProps {
     onGoToMatchmaking: () => void;
     isReadOnly: boolean;
     matchmakingResultsExist: boolean;
-    onLoadDemoData: () => void;
+    onLoadDemoData?: () => void; // Optional now, or removed
+    onAddGalloToPc: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, pc: string, frontNumber: number, targetTotalFronts?: number) => void;
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ 
     cuerdas, gallos, torneo, viewingDay, currentDay, dailyResults, onUpdateTorneo, onStartMatchmaking, 
-    onSaveCuerda, onDeleteCuerda, onSaveGallo, onAddSingleGallo, onDeleteGallo, isMatchmaking, 
-    onFullReset, onGoToResults, onGoToMatchmaking, isReadOnly, matchmakingResultsExist, onLoadDemoData
+    onSaveCuerda, onImportCuerdaAndGallos, onDeleteCuerda, onSaveGallo, onAddSingleGallo, onDeleteGallo, isMatchmaking, 
+    onFullReset, onGoToResults, onGoToMatchmaking, isReadOnly, matchmakingResultsExist, onAddGalloToPc
 }) => {
     const [isCuerdaModalOpen, setCuerdaModalOpen] = useState(false);
     const [isGalloModalOpen, setGalloModalOpen] = useState(false);
     const [isConflictModalOpen, setConflictModalOpen] = useState(false);
+    const [isAiModalOpen, setAiModalOpen] = useState(false);
     
     const [currentCuerda, setCurrentCuerda] = useState<Cuerda | null>(null);
     const [currentGallo, setCurrentGallo] = useState<Gallo | null>(null);
@@ -322,9 +303,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
 
     const handleSaveSingleGallo = (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, currentGalloId: string) => {
         onSaveGallo(galloData, currentGalloId);
-        if (currentGallo) {
-            setGalloModalOpen(false);
-        }
+        // NOTA: Se ha eliminado el cierre automático del modal para permitir seguir editando.
+        // if (currentGallo) {
+        //     setGalloModalOpen(false); 
+        // }
     };
     
     const handleOpenEditGalloModal = (gallo: Gallo) => {
@@ -358,17 +340,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         return grouped;
     }, [gallos]);
 
-    const handlePrintPlanilla = useCallback(() => {
-        const printableContainer = document.querySelector('.printable-planilla-container');
-        if (printableContainer) {
-            document.body.classList.add('printing-planilla');
-            window.print();
-            document.body.classList.remove('printing-planilla');
-        } else {
-            console.error('Error al encontrar la planilla para imprimir.');
-        }
-    }, []);
-
     const isCurrentDayFinished = dailyResults.some(r => r.day === currentDay);
     const isTournamentFinished = dailyResults.length >= torneo.tournamentDays;
 
@@ -391,13 +362,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         <div className="space-y-6">
             <div className="text-center mb-4">
                 <h2 className="text-2xl font-bold text-white">{setupTitle}</h2>
-                <p className="text-gray-400 mt-1">
-                   {setupSubtitle}
-                </p>
+                <p className="text-gray-400 mt-1">{setupSubtitle}</p>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
                 <div className="lg:col-span-1 space-y-6">
                      <div className="bg-gray-800/50 rounded-2xl shadow-lg border border-gray-700 p-4 sm:p-6 relative">
                         <div className="flex justify-between items-center mb-4">
@@ -407,18 +375,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                             </div>
                             {!isReadOnly && (
                                 <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={onLoadDemoData}
-                                        title="Cargar 100 gallos y cuerdas de prueba"
-                                        className="text-gray-400 hover:text-blue-400 transition-colors p-1"
-                                    >
-                                        <PlusIcon className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={onFullReset}
-                                        title="Reiniciar aplicación y borrar todos los datos"
-                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                    >
+                                    <button onClick={onFullReset} title="Reiniciar aplicación y borrar todos los datos" className="text-gray-400 hover:text-red-500 transition-colors p-1">
                                         <RepeatIcon className="w-5 h-5" />
                                     </button>
                                 </div>
@@ -428,7 +385,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                             <TournamentRulesForm
                                 torneo={torneo}
                                 onUpdateTorneo={onUpdateTorneo}
-                                onPrintPlanilla={handlePrintPlanilla}
                                 onOpenConflictModal={() => setConflictModalOpen(true)}
                                 isReadOnly={isReadOnly}
                             />
@@ -444,6 +400,14 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                             buttonText="Añadir Cuerda" 
                             onButtonClick={handleOpenAddCuerdaModal}
                             isReadOnly={isReadOnly}
+                            extraButton={
+                                !isReadOnly && (
+                                    <button onClick={() => setAiModalOpen(true)} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg transition-colors text-xs sm:text-sm">
+                                        <RoosterIcon className="w-4 h-4" />
+                                        <span>Importar con IA</span>
+                                    </button>
+                                )
+                            }
                         >
                             <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                                 {cuerdas.length === 0 && <p className="text-gray-500 text-center py-4">No hay cuerdas registradas.</p>}
@@ -510,29 +474,18 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                     </div>
                      <div className="pt-6 text-center">
                         { isReadOnly ? (
-                             <button
-                                onClick={onGoToMatchmaking}
-                                disabled={!matchmakingResultsExist}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center mx-auto disabled:bg-gray-500 disabled:cursor-not-allowed"
-                            >
+                             <button onClick={onGoToMatchmaking} disabled={!matchmakingResultsExist} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center mx-auto disabled:bg-gray-500 disabled:cursor-not-allowed">
                                 <PlayIcon className="w-6 h-6 mr-2"/>
                                 Ver Cartelera del Día {viewingDay}
                             </button>
                         ) : isTournamentFinished ? (
-                            <button
-                                onClick={onGoToResults}
-                                className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center mx-auto"
-                            >
+                            <button onClick={onGoToResults} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center mx-auto">
                                 <TrophyIcon className="w-6 h-6 mr-2"/>
                                 Ver Clasificación Final
                             </button>
                         ) : (
                             <div className="flex flex-col items-center gap-4">
-                                <button 
-                                    onClick={onStartMatchmaking} 
-                                    disabled={isMatchmaking || activeRoosterCount < 2 || isCurrentDayFinished}
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
-                                >
+                                <button onClick={onStartMatchmaking} disabled={isMatchmaking || activeRoosterCount < 2 || isCurrentDayFinished} className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-10 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center mx-auto">
                                    {isMatchmaking ? (
                                         <>
                                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -548,28 +501,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                                        </>
                                    )}
                                 </button>
-                                {activeRoosterCount === 0 && !isReadOnly && (
-                                    <button 
-                                        onClick={onLoadDemoData}
-                                        className="text-blue-400 hover:text-blue-300 text-sm font-medium underline transition-colors"
-                                    >
-                                        ¿Quieres cargar 100 gallos de prueba para empezar rápido?
-                                    </button>
-                                )}
                             </div>
                         )}
-                        {!isReadOnly && !isCurrentDayFinished && activeRoosterCount < 2 && activeRoosterCount > 0 && <p className="text-xs text-gray-500 mt-2">Se necesitan al menos 2 gallos para empezar.</p>}
                     </div>
                 </div>
             </div>
 
-            <CuerdaFormModal 
-                isOpen={isCuerdaModalOpen} 
-                onClose={() => setCuerdaModalOpen(false)} 
-                onSave={handleSaveCuerdaClick} 
-                cuerda={currentCuerda}
-                cuerdas={cuerdas}
-            />
+            <CuerdaFormModal isOpen={isCuerdaModalOpen} onClose={() => setCuerdaModalOpen(false)} onSave={handleSaveCuerdaClick} cuerda={currentCuerda} cuerdas={cuerdas} />
             
             <GalloFormModal 
                 isOpen={isGalloModalOpen} 
@@ -584,18 +522,19 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                 onEditGallo={handleOpenEditGalloModal}
             />
 
-            <ConflictModal
-                isOpen={isConflictModalOpen}
-                onClose={() => setConflictModalOpen(false)}
-                torneo={torneo}
-                cuerdas={cuerdas}
-                onUpdateTorneo={onUpdateTorneo}
-                isReadOnly={isReadOnly}
-            />
+            <ConflictModal isOpen={isConflictModalOpen} onClose={() => setConflictModalOpen(false)} torneo={torneo} cuerdas={cuerdas} onUpdateTorneo={onUpdateTorneo} isReadOnly={isReadOnly} />
 
-             <div className="printable-planilla-container">
-                <PrintablePlanilla torneo={torneo} />
-            </div>
+            <AiImportModal 
+                isOpen={isAiModalOpen}
+                onClose={() => setAiModalOpen(false)}
+                cuerdas={cuerdas}
+                gallos={gallos}
+                torneo={torneo}
+                onImportFullData={onImportCuerdaAndGallos}
+                onAddSingleGallo={onAddSingleGallo}
+                onSaveGallo={onSaveGallo}
+                onAddGalloToPc={onAddGalloToPc}
+            />
         </div>
     );
 };

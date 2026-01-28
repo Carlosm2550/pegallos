@@ -1,9 +1,6 @@
-
-
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Cuerda, Gallo, Torneo, TipoGallo, TipoEdad } from '../types';
-import { TrashIcon, ChevronDownIcon, ChevronUpIcon, PencilIcon } from './Icons';
-import Modal from './Modal';
+import { ChevronDownIcon, PencilIcon, XIcon, PlusIcon } from './Icons';
 import { AGE_OPTIONS_BY_MARCA } from '../constants';
 
 // --- Lbs.Oz Weight Conversion Utilities ---
@@ -11,7 +8,7 @@ const OUNCES_PER_POUND = 16;
 
 const toLbsOz = (totalOunces: number) => {
     if (isNaN(totalOunces) || totalOunces < 0) return { lbs: 0, oz: 0 };
-    const total = Math.round(totalOunces); // Work with integers to avoid floating point issues
+    const total = Math.round(totalOunces);
     const lbs = Math.floor(total / OUNCES_PER_POUND);
     const oz = total % OUNCES_PER_POUND;
     return { lbs, oz };
@@ -29,77 +26,33 @@ const formatWeightLbsOz = (totalOunces: number, withUnit = false): string => {
 
 const parseWeightLbsOz = (value: string): number => {
     let cleanValue = value.replace(/[^0-9.]/g, '');
-
-    // If it's a 3-digit number without a decimal, intelligently convert it.
-    // e.g., "512" becomes "5.12" to represent 5 lbs 12 oz.
     if (!cleanValue.includes('.') && cleanValue.length === 3) {
         cleanValue = `${cleanValue.substring(0, 1)}.${cleanValue.substring(1)}`;
     }
-
     const parts = cleanValue.split('.');
     let lbs = parseInt(parts[0], 10) || 0;
     let oz_input = parts[1] || '0';
-    // Ensure oz part is treated as an integer, not octal, and handle partial input like "3."
     let oz = parseInt(oz_input, 10) || 0;
-
-    // Handle ounce overflow, e.g., if user enters "4.20" it becomes "5.04"
     if (oz >= OUNCES_PER_POUND) {
         lbs += Math.floor(oz / OUNCES_PER_POUND);
         oz = oz % OUNCES_PER_POUND;
     }
-    
     return fromLbsOz(lbs, oz);
 };
 
-// Helper to get age description text
-const getAgeDisplayText = (marca: number, ageMonths: number): string => {
-    const options = AGE_OPTIONS_BY_MARCA[String(marca)] || [];
-    const option = options.find(opt => opt.ageMonths === ageMonths);
-    return option ? option.displayText : `${ageMonths} meses`;
-};
-
-
-// --- HELPER & UI COMPONENTS ---
+// --- HELPER COMPONENTS ---
 interface LbsOzInputProps {
   label: string;
-  value: number; // Total ounces
+  value: number;
   onChange: (newValue: number) => void;
-  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   disabled?: boolean;
-  validator?: (value: number) => boolean; // Optional validator function
-  showGrid?: boolean;
-  minWeight?: number; // Total ounces for grid filtering
-  maxWeight?: number; // Total ounces for grid filtering
+  validator?: (value: number) => boolean;
 }
-export const LbsOzInput: React.FC<LbsOzInputProps> = ({ label, value, onChange, onBlur, disabled = false, validator, showGrid = true, minWeight, maxWeight }) => {
+export const LbsOzInput: React.FC<LbsOzInputProps> = ({ label, value, onChange, disabled, validator }) => {
     const [displayValue, setDisplayValue] = useState(formatWeightLbsOz(value));
     const [isValid, setIsValid] = useState(true);
     const [isGridOpen, setIsGridOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    const weightOptions = useMemo(() => {
-        const allPossibleWeights = [];
-        // Generate a wide range of weights, one ounce at a time
-        const startOunces = fromLbsOz(2, 0);
-        const endOunces = fromLbsOz(6, 0);
-        for (let oz = startOunces; oz <= endOunces; oz++) {
-            allPossibleWeights.push(oz);
-        }
-
-        if (minWeight !== undefined && maxWeight !== undefined && minWeight > 0 && maxWeight > 0) {
-            // Filter the generated list based on the tournament rules
-            return allPossibleWeights.filter(w => w >= minWeight && w <= maxWeight);
-        }
-        
-        // Fallback to the original hardcoded list if no range is provided
-        const defaultOptions = [];
-        for (let oz = 10; oz <= 15; oz++) defaultOptions.push(fromLbsOz(2, oz));
-        for (let lbs = 3; lbs <= 4; lbs++) {
-            for (let oz = 0; oz <= 15; oz++) defaultOptions.push(fromLbsOz(lbs, oz));
-        }
-        defaultOptions.push(fromLbsOz(5, 0));
-        return defaultOptions;
-    }, [minWeight, maxWeight]);
 
     useEffect(() => {
         setDisplayValue(formatWeightLbsOz(value));
@@ -116,106 +69,76 @@ export const LbsOzInput: React.FC<LbsOzInputProps> = ({ label, value, onChange, 
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setDisplayValue(e.target.value);
-    };
-
-    const handleBlurInternal = (e: React.FocusEvent<HTMLInputElement>) => {
-        const totalOunces = parseWeightLbsOz(displayValue);
-        const currentValidity = validator ? validator(totalOunces) : true;
-        setIsValid(currentValidity);
-        onChange(totalOunces);
-        if (onBlur) onBlur(e);
-    };
-
-    const handleWeightSelection = (weightInOunces: number) => {
-        onChange(weightInOunces);
-        setIsGridOpen(false);
-    };
-    
-    const inputId = `input-${label.replace(/\s+/g, '-')}`;
-    const validityClasses = !isValid 
-        ? 'border-red-500 text-red-400 focus:ring-red-500 focus:border-red-500' 
-        : 'border-gray-600 focus:ring-amber-500 focus:border-amber-500';
+    const weightOptions = useMemo(() => {
+        const opts = [];
+        const start = fromLbsOz(2, 10);
+        const end = fromLbsOz(5, 4);
+        for (let oz = start; oz <= end; oz++) opts.push(oz);
+        return opts;
+    }, []);
 
     return (
         <div ref={containerRef} className="relative">
-            <label htmlFor={inputId} className="block text-sm font-medium text-gray-400 mb-1">{label}</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
             <div className="relative flex items-center">
                 <input
-                    id={inputId}
                     type="text"
                     value={displayValue}
-                    onChange={handleInputChange}
-                    onFocus={showGrid ? () => setIsGridOpen(true) : undefined}
-                    onBlur={handleBlurInternal}
+                    onChange={(e) => setDisplayValue(e.target.value)}
+                    onFocus={() => setIsGridOpen(true)}
+                    onBlur={() => onChange(parseWeightLbsOz(displayValue))}
                     disabled={disabled}
-                    className={`w-full bg-gray-700 border text-white rounded-lg px-3 py-2 focus:ring-2 outline-none transition text-center font-mono disabled:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed ${validityClasses}`}
-                    inputMode="decimal"
+                    className={`w-full bg-[#2a2f3e] border ${isValid ? 'border-gray-700' : 'border-red-500'} text-gray-200 rounded-md px-3 py-2 outline-none text-center font-mono font-bold shadow-inner`}
                 />
-                {showGrid && (
-                  <div className="absolute right-0 flex items-center h-full">
-                      <button
-                          type="button"
-                          onClick={() => setIsGridOpen(!isGridOpen)}
-                          disabled={disabled}
-                          className="text-gray-400 hover:text-white h-full px-2 flex items-center justify-center rounded-r-lg bg-gray-700 border-l border-gray-600 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                          aria-expanded={isGridOpen}
-                          aria-controls="weight-grid"
-                      >
-                          <ChevronDownIcon className={`w-5 h-5 transition-transform ${isGridOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                  </div>
-                )}
+                <button type="button" onClick={() => setIsGridOpen(!isGridOpen)} className="absolute right-2 text-gray-500">
+                    <ChevronDownIcon className="w-4 h-4" />
+                </button>
             </div>
-            {showGrid && isGridOpen && !disabled && (
-                <div id="weight-grid" className="absolute top-full mt-2 w-full bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-10 p-2 max-h-60 overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-5 gap-1">
-                        {weightOptions.map(weightInOunces => (
-                            <button
-                                key={weightInOunces}
-                                type="button"
-                                className="text-center font-mono py-2 rounded-md bg-gray-700 hover:bg-amber-600 hover:text-gray-900 transition-colors text-sm"
-                                onClick={() => handleWeightSelection(weightInOunces)}
-                            >
-                                {formatWeightLbsOz(weightInOunces)}
-                            </button>
-                        ))}
-                    </div>
+            {isGridOpen && !disabled && (
+                <div className="absolute top-full mt-1 w-full bg-[#1e2230] border border-gray-700 rounded shadow-xl z-50 max-h-40 overflow-y-auto grid grid-cols-4 p-1 gap-1">
+                    {weightOptions.map(w => (
+                        <button key={w} onClick={() => { onChange(w); setIsGridOpen(false); }} className="p-1 text-[10px] hover:bg-amber-500 hover:text-black rounded text-gray-300 font-mono">
+                            {formatWeightLbsOz(w)}
+                        </button>
+                    ))}
                 </div>
             )}
         </div>
     );
 };
 
-interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  wrapperClassName?: string;
-}
-export const InputField: React.FC<InputFieldProps> = ({ label, id, type, wrapperClassName, ...props }) => {
-  const inputId = id || `input-${label.replace(/\s+/g, '-')}`;
-
-  return (
-    <div className={wrapperClassName}>
-      <label htmlFor={inputId} className="block text-sm font-medium text-gray-400 mb-1">{label}</label>
-      <div className="relative">
+export const InputField: React.FC<{
+    label: string, 
+    value: string | number, 
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, 
+    placeholder?: string, 
+    disabled?: boolean,
+    type?: string,
+    required?: boolean,
+    min?: string | number,
+    inputClassName?: string
+}> = ({ label, value, onChange, placeholder, disabled, type = 'text', required, min, inputClassName }) => (
+    <div>
+        <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
         <input
-          id={inputId}
-          type={type}
-          {...props}
-          className={`w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition disabled:bg-gray-600 disabled:opacity-70`}
+            type={type}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            disabled={disabled}
+            required={required}
+            min={min}
+            className={`w-full bg-[#2a2f3e] border border-gray-700 rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors disabled:opacity-50 ${inputClassName || 'text-gray-200'}`}
         />
-      </div>
     </div>
-  );
-};
+);
 
-
+// --- MAIN MODAL ---
 interface GalloBulkFormData {
     ringId: string;
     color: string;
     cuerdaId: string;
-    weight: number; // total ounces
+    weight: number;
     ageMonths: string;
     markingId: string;
     breederPlateId: string;
@@ -233,474 +156,284 @@ const GalloFormModal: React.FC<{
     gallos: Gallo[];
     torneo: Torneo;
     onDeleteGallo: (galloId: string) => void;
-    onEditGallo: (gallo: Gallo) => void;
-}> = ({ isOpen, onClose, onSaveSingle, onAddSingleGallo, gallo, cuerdas, gallos, torneo, onDeleteGallo }) => {
+    onEditGallo?: (gallo) => void;
+}> = ({ isOpen, onClose, onSaveSingle, onAddSingleGallo, gallo, cuerdas, gallos, torneo }) => {
     
-    // --- State for Single Edit Mode ---
-    const [singleForm, setSingleForm] = useState<Omit<Gallo, 'id' | 'tipoEdad'>>({} as any);
-    
-    // --- State for Bulk Add Mode ---
     const [selectedCuerdaId, setSelectedCuerdaId] = useState('');
-    const [activeTabCuerdaId, setActiveTabCuerdaId] = useState('');
-    const [editingExistingGallo, setEditingExistingGallo] = useState<Gallo | null>(null);
-    const [isRingIdFocused, setIsRingIdFocused] = useState(false);
+    const [selectedSlotIndex, setSelectedSlotIndex] = useState(0); // 0-based index of rooster slot
+    const [editingGallo, setEditingGallo] = useState<Gallo | null>(null);
 
-    const initialGalloFormState: GalloBulkFormData = {
+    const initialForm: GalloBulkFormData = {
         ringId: '', color: '', cuerdaId: '', weight: 0, ageMonths: '', markingId: '', breederPlateId: '', tipoGallo: TipoGallo.LISO, marca: '',
     };
-    const [currentGalloForm, setCurrentGalloForm] = useState<GalloBulkFormData>(initialGalloFormState);
-    
-    const singleEditTipoEdad = useMemo(() => (Number(singleForm.ageMonths) >= 12 ? TipoEdad.GALLO : TipoEdad.POLLO), [singleForm.ageMonths]);
-    const bulkAddTipoEdad = useMemo(() => (Number(currentGalloForm.ageMonths) >= 12 ? TipoEdad.POLLO : TipoEdad.GALLO), [currentGalloForm.ageMonths]);
-    const gallosByCuerda = useMemo(() => {
-        const grouped = new Map<string, Gallo[]>();
-        (gallos || []).forEach(gallo => {
-            const list = grouped.get(gallo.cuerdaId) || [];
-            list.push(gallo);
-            grouped.set(gallo.cuerdaId, list);
-        });
-        return grouped;
-    }, [gallos]);
-    
-    const lastRingId = useMemo(() => {
-        if (gallos && gallos.length > 0) {
-            // The gallo ID contains a timestamp. Let's use that to find the most recent one.
-            const sortedGallos = [...gallos].sort((a, b) => {
-                const timeA = parseInt(a.id.split('-')[1], 10) || 0;
-                const timeB = parseInt(b.id.split('-')[1], 10) || 0;
-                return timeB - timeA; // Sort descending by time
-            });
-            return sortedGallos[0].ringId;
-        }
-        return null;
-    }, [gallos]);
+    const [form, setForm] = useState<GalloBulkFormData>(initialForm);
 
-    const handleFormKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && (e.target as HTMLElement).nodeName === 'INPUT') {
-            e.preventDefault();
-        }
-    };
-
-    const isWeightInTournamentRange = useCallback((weightInOunces: number) => {
-        if (!torneo || weightInOunces === 0) return false;
-        return weightInOunces >= torneo.minWeight && weightInOunces <= torneo.maxWeight;
-    }, [torneo]);
-
-    useEffect(() => {
-        if (isOpen) {
-            if (gallo) { // Single Edit Mode
-                setSingleForm({ ...gallo });
-            } else { // Bulk Add Mode Reset
-                setSelectedCuerdaId('');
-                setActiveTabCuerdaId('');
-                setCurrentGalloForm(initialGalloFormState);
-                setEditingExistingGallo(null);
-            }
-        }
-    }, [isOpen, gallo]);
-    
-    const handleSingleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!singleForm.cuerdaId || !gallo) return;
-
-        const isRingIdUnique = !gallos.some(g => g.ringId.trim().toLowerCase() === singleForm.ringId.trim().toLowerCase() && g.id !== gallo.id);
-        if (!isRingIdUnique) {
-            alert(`El ID del Anillo "${singleForm.ringId}" ya existe. Por favor, use uno diferente.`);
-            return;
-        }
-
-        if (!singleForm.marca || !singleForm.ageMonths) {
-            alert("Debe seleccionar una Marca y una Edad para el gallo.");
-            return;
-        }
-        if (!isWeightInTournamentRange(singleForm.weight)) {
-            alert(`El peso del gallo (${formatWeightLbsOz(singleForm.weight, true)}) debe estar entre ${formatWeightLbsOz(torneo.minWeight, true)} y ${formatWeightLbsOz(torneo.maxWeight, true)}.`);
-            return;
-        }
-
-        const finalData = { ...singleForm, marca: Number(singleForm.marca), breederPlateId: singleForm.breederPlateId?.trim() || 'N/A' };
-        onSaveSingle(finalData, gallo.id);
-        onClose();
-    };
-
-    const handleCuerdaSelectionChange = (baseCuerdaId: string) => {
-        const selected = cuerdas.find(c => c.id === baseCuerdaId);
-        if (!selected) return;
-        const baseName = selected.name.replace(/\s\(F\d+\)$/, '').trim();
-        const firstFront = cuerdas
-            .filter(c => c.name.replace(/\s\(F\d+\)$/, '').trim() === baseName)
-            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))[0];
-
-        setSelectedCuerdaId(baseCuerdaId);
-        setActiveTabCuerdaId(firstFront?.id || '');
-        setCurrentGalloForm({ ...initialGalloFormState, cuerdaId: firstFront?.id || '' });
-        setEditingExistingGallo(null);
-    };
-
-    const handleTabClick = (cuerdaId: string) => {
-        setActiveTabCuerdaId(cuerdaId);
-        setCurrentGalloForm({ ...initialGalloFormState, cuerdaId });
-        setEditingExistingGallo(null);
-    };
-
-    const handleBulkFormChange = (field: keyof GalloBulkFormData, value: string | number) => {
-        const newFormState = { ...currentGalloForm, [field]: String(value) };
-        if (field === 'marca') {
-            const marcaValue = String(value);
-            const ageOptions = AGE_OPTIONS_BY_MARCA[marcaValue] || [];
-            if (ageOptions.length === 1) {
-                newFormState.ageMonths = String(ageOptions[0].ageMonths);
-            } else {
-                newFormState.ageMonths = ''; 
-            }
-        }
-        setCurrentGalloForm(newFormState);
-    };
-    
-    const handleBulkFormSubmit = () => {
-        const isEditingExisting = editingExistingGallo !== null;
-        const isAdding = !isEditingExisting;
-
-        const currentId = isEditingExisting ? editingExistingGallo.id : null;
-        const isRingIdUnique = !gallos.some(g => g.ringId.trim().toLowerCase() === currentGalloForm.ringId.trim().toLowerCase() && g.id !== currentId);
-        if (!isRingIdUnique) {
-            alert(`El ID del Anillo "${currentGalloForm.ringId}" ya existe. Por favor, use uno diferente.`);
-            return;
-        }
-
-        if (isAdding) {
-            const existingCount = gallosByCuerda.get(activeTabCuerdaId)?.length || 0;
-            const totalCount = existingCount;
-            const limit = torneo.roostersPerTeam;
-
-            if (limit > 0 && totalCount >= limit) {
-                const cuerdaName = cuerdas.find(c => c.id === activeTabCuerdaId)?.name || 'Este frente';
-                alert(`${cuerdaName} ha alcanzado el límite de ${limit} gallos.`);
-                return;
-            }
-        }
-        
-        if (!currentGalloForm.marca || !currentGalloForm.ageMonths) {
-            alert("Debe seleccionar una Marca y una Edad para el gallo.");
-            return;
-        }
-        if (!isWeightInTournamentRange(currentGalloForm.weight)) {
-            alert(`El peso del gallo (${formatWeightLbsOz(currentGalloForm.weight, true)}) debe estar entre ${formatWeightLbsOz(torneo.minWeight, true)} y ${formatWeightLbsOz(torneo.maxWeight, true)}.`);
-            return;
-        }
-
-        const newGalloData: Omit<Gallo, 'id' | 'tipoEdad'> = {
-            ringId: currentGalloForm.ringId, color: currentGalloForm.color, cuerdaId: activeTabCuerdaId, weight: currentGalloForm.weight,
-            markingId: currentGalloForm.markingId, breederPlateId: currentGalloForm.breederPlateId?.trim() || 'N/A', tipoGallo: currentGalloForm.tipoGallo,
-            ageMonths: Number(currentGalloForm.ageMonths), marca: Number(currentGalloForm.marca),
-        };
-
-        if (isEditingExisting) {
-            onSaveSingle(newGalloData, editingExistingGallo.id);
-            setEditingExistingGallo(null);
-        } else {
-            onAddSingleGallo(newGalloData);
-        }
-        
-        setCurrentGalloForm({ ...initialGalloFormState, cuerdaId: activeTabCuerdaId });
-    };
-
-    const handleEditExistingClick = (galloToEdit: Gallo) => {
-        setEditingExistingGallo(galloToEdit);
-        setCurrentGalloForm({
-            ...galloToEdit,
-            breederPlateId: galloToEdit.breederPlateId === 'N/A' ? '' : galloToEdit.breederPlateId,
-            ageMonths: String(galloToEdit.ageMonths),
-            marca: String(galloToEdit.marca),
-        });
-    };
-    
-    const handleDeleteExistingGallo = (gallo: Gallo) => {
-        if (window.confirm(`¿Está seguro de que desea eliminar al gallo "${gallo.color}" (Anillo: ${gallo.ringId}) de forma permanente?`)) {
-            onDeleteGallo(gallo.id);
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditingExistingGallo(null);
-        setCurrentGalloForm({ ...initialGalloFormState, cuerdaId: activeTabCuerdaId });
-    };
-
-    const groupedBaseCuerdas = useMemo(() => {
-        const groups = new Map<string, Cuerda[]>();
-        cuerdas.forEach(c => {
-            const baseName = c.name.replace(/\s\(F\d+\)$/, '').trim();
-            if (!groups.has(baseName)) { groups.set(baseName, []); }
-            groups.get(baseName)!.push(c);
-        });
-        
-        return Array.from(groups.entries()).map(([baseName, fronts]) => {
-            fronts.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-            const frontLabels = fronts.map(f => f.name.match(/\(F\d+\)/)?.[0] || '').join(' ');
-            return { id: fronts[0].id, displayText: `${baseName} ${frontLabels}`.trim() };
-        }).sort((a,b) => a.displayText.localeCompare(b.displayText));
-    }, [cuerdas]);
-
-    const frontsForSelectedCuerda = useMemo(() => {
+    // Get unique fronts for the selected team
+    const activeFronts = useMemo(() => {
         if (!selectedCuerdaId) return [];
-        const selected = cuerdas.find(c => c.id === selectedCuerdaId);
-        if (!selected) return [];
-        const baseName = selected.name.replace(/\s\(F\d+\)$/, '').trim();
-        return cuerdas.filter(c => c.name.replace(/\s\(F\d+\)$/, '').trim() === baseName)
-            .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        const base = cuerdas.find(c => c.id === selectedCuerdaId);
+        if (!base) return [];
+        const baseId = base.baseCuerdaId || base.id;
+        const namePrefix = base.name.replace(/\s\(F\d+\)$/, '');
+        return cuerdas.filter(c => c.name.startsWith(namePrefix)).sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
     }, [selectedCuerdaId, cuerdas]);
 
-    const ageOptions = useMemo(() => AGE_OPTIONS_BY_MARCA[String(singleForm.marca)] || [], [singleForm.marca]);
-    
-    const renderSingleEditForm = () => {
-        return (
-            <form onSubmit={handleSingleSubmit} onKeyDown={handleFormKeyDown} className="space-y-4">
-                <h4 className="text-lg font-semibold text-amber-300 mb-2">Cuerda: {cuerdas.find(c => c.id === singleForm.cuerdaId)?.name || ''}</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="relative">
-                        <InputField 
-                          label="ID del Anillo (A)" 
-                          value={singleForm.ringId || ''} 
-                          onChange={e => setSingleForm(p => ({...p, ringId: e.target.value}))} 
-                          required 
-                          onFocus={() => setIsRingIdFocused(true)}
-                          onBlur={() => setIsRingIdFocused(false)}
-                          autoComplete="off"
-                        />
-                        {isRingIdFocused && lastRingId && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-gray-800 text-sm font-semibold px-3 py-1 rounded-md shadow-lg z-20">
-                                Anterior: {lastRingId}
-                                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white"></div>
-                            </div>
-                        )}
-                    </div>
-                    <InputField label="Número de Placa Marcaje (Pm)" value={singleForm.markingId || ''} onChange={e => setSingleForm(p => ({...p, markingId: e.target.value}))} required />
-                    <InputField label="Placa del Criadero (Pc)" value={singleForm.breederPlateId === 'N/A' ? '' : singleForm.breederPlateId || ''} onChange={e => setSingleForm(p => ({...p, breederPlateId: e.target.value}))} placeholder="N/A si se deja vacío" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <InputField label="Color del Gallo" value={singleForm.color || ''} onChange={e => setSingleForm(p => ({...p, color: e.target.value}))} required />
-                    <LbsOzInput label="Peso (Lb.Oz)" value={singleForm.weight || 0} onChange={v => setSingleForm(p => ({...p, weight: v}))} validator={isWeightInTournamentRange} minWeight={torneo.minWeight} maxWeight={torneo.maxWeight} />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Marca</label>
-                        <select value={singleForm.marca || ''} onChange={e => {
-                            const newMarca = e.target.value;
-                            const options = AGE_OPTIONS_BY_MARCA[newMarca] || [];
-                            setSingleForm(p => ({ ...p, marca: Number(newMarca), ageMonths: options.length > 0 ? options[0].ageMonths : 0 }));
-                         }} required className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition">
-                            <option value="" disabled>Seleccionar...</option>
-                            {Object.keys(AGE_OPTIONS_BY_MARCA).sort((a,b) => Number(a) - Number(b)).map(m => <option key={m} value={m}>Marca {m}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                         <label className="block text-sm font-medium text-gray-400 mb-1">Edad</label>
-                         <select value={singleForm.ageMonths || ''} onChange={e => setSingleForm(p => ({...p, ageMonths: Number(e.target.value)}))} required disabled={!singleForm.marca || ageOptions.length <= 1} className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition disabled:bg-gray-600">
-                             <option value="" disabled>Seleccionar...</option>
-                             {ageOptions.map(opt => <option key={opt.ageMonths} value={opt.ageMonths}>{opt.displayText}</option>)}
-                         </select>
-                    </div>
-                    <InputField label="Tipo (Pollo/Gallo)" value={singleEditTipoEdad} disabled />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Fenotipo</label>
-                        <select value={singleForm.tipoGallo} onChange={e => setSingleForm(p => ({...p, tipoGallo: e.target.value as TipoGallo}))} required className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition">
-                            {Object.values(TipoGallo).map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                    </div>
-                </div>
-                <div className="flex justify-end pt-4 space-x-2 border-t border-gray-700 mt-6">
-                    <button type="button" onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Cancelar</button>
-                    <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg">Guardar Cambios</button>
-                </div>
-            </form>
-        )
+    // All gallos belonging to the same team/cuerda base
+    const teamGallos = useMemo(() => {
+        if (!selectedCuerdaId || activeFronts.length === 0) return [];
+        const teamIds = new Set(activeFronts.map(f => f.id));
+        return gallos.filter(g => teamIds.has(g.cuerdaId));
+    }, [gallos, activeFronts, selectedCuerdaId]);
+
+    // Map slots 1..N to existing gallos using round-robin logic
+    const slots = useMemo(() => {
+        const numUniqueFronts = activeFronts.length;
+        if (numUniqueFronts === 0) return [];
+
+        const result = [];
+        for (let j = 0; j < torneo.roostersPerTeam; j++) {
+            const frontIdx = j % numUniqueFronts;
+            const targetFront = activeFronts[frontIdx];
+            const k = Math.floor(j / numUniqueFronts); // k-th gallo of this front
+            
+            const gallosOfThisFront = teamGallos.filter(g => g.cuerdaId === targetFront.id);
+            // Assuming stable order (sorted by ID or creation)
+            const galloInSlot = gallosOfThisFront[k];
+
+            result.push({
+                slotIndex: j + 1,
+                front: targetFront,
+                gallo: galloInSlot
+            });
+        }
+        return result;
+    }, [activeFronts, teamGallos, torneo.roostersPerTeam]);
+
+    const loadGalloIntoForm = (g: Gallo) => {
+        setEditingGallo(g);
+        setForm({
+            ...g,
+            ageMonths: String(g.ageMonths),
+            marca: String(g.marca),
+            breederPlateId: g.breederPlateId === 'N/A' ? '' : g.breederPlateId
+        });
     };
 
-    const renderBulkAddForm = () => {
-        const isCuerdaSelected = !!selectedCuerdaId;
-        const ageOptionsForBulk = AGE_OPTIONS_BY_MARCA[currentGalloForm.marca] || [];
-        const existingCount = gallosByCuerda.get(activeTabCuerdaId)?.length || 0;
+    const resetFormForSlot = (slotIdx: number) => {
+        const slot = slots[slotIdx];
+        if (!slot) return;
         
-        const isEditingExisting = editingExistingGallo !== null;
-        const isEditing = isEditingExisting;
-
-        const isLimitReached = torneo.roostersPerTeam > 0 && existingCount >= torneo.roostersPerTeam;
-        const isAddButtonDisabled = (isLimitReached && !isEditing) || !currentGalloForm.ringId || !currentGalloForm.color || currentGalloForm.weight === 0 || !selectedCuerdaId;
-        const addButtonText = isLimitReached && !isEditing ? 'Límite de gallos alcanzado' : isEditing ? 'Guardar Cambios' : 'Añadir Gallo a este Frente';
-
-        const existingGallosForTab = gallosByCuerda.get(activeTabCuerdaId) || [];
-        const hasAnyGallos = existingGallosForTab.length > 0;
-
-        return (
-            <div onKeyDown={handleFormKeyDown}>
-                <fieldset disabled={!isCuerdaSelected} className="disabled:opacity-40 transition-opacity">
-                     <div className="space-y-2 max-h-24 overflow-y-auto pr-2 mb-4 custom-scrollbar">
-                        {isCuerdaSelected && !hasAnyGallos && <p className="text-gray-500 text-center text-sm py-2">Aún no hay gallos para este frente.</p>}
-                        {!isCuerdaSelected && <p className="text-gray-500 text-center text-sm py-8">Seleccione una cuerda para añadir gallos.</p>}
-
-                        {/* Display existing gallos */}
-                        {existingGallosForTab.map((g) => {
-                            const tipoEdad = g.ageMonths < 12 ? TipoEdad.POLLO : TipoEdad.GALLO;
-                            const ageDisplayText = getAgeDisplayText(g.marca, g.ageMonths);
-                            const fullDescription = `${g.color}: A:${g.ringId} / Pm:${g.markingId} / Pc:${g.breederPlateId} / Marca:${g.marca} / ${ageDisplayText} / ${tipoEdad} / ${g.tipoGallo} / ${formatWeightLbsOz(g.weight)} (Lb.Oz)`;
-                            return (
-                                <div key={g.id} className="flex items-center justify-between bg-gray-800/40 p-2 rounded-lg text-sm">
-                                    <p className="text-white truncate flex-grow text-xs" title={fullDescription}>
-                                        <span className="font-bold text-amber-400">{g.color}</span>: A:{g.ringId} / Pm:{g.markingId} / Pc:{g.breederPlateId} / Marca:{g.marca} / {ageDisplayText} / {tipoEdad} / {g.tipoGallo} / {formatWeightLbsOz(g.weight)} (Lb.Oz)
-                                    </p>
-                                    <div className="flex items-center space-x-1 flex-shrink-0 ml-2">
-                                        <button onClick={() => handleEditExistingClick(g)} className="p-1 text-gray-400 hover:text-amber-400 transition-colors"><PencilIcon className="w-4 h-4"/></button>
-                                        <button onClick={() => handleDeleteExistingGallo(g)} className="p-1 text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="w-4 h-4"/></button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div className="p-4 bg-gray-900/50 rounded-lg space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="relative">
-                                <InputField 
-                                    label="ID del Anillo (A)" 
-                                    value={currentGalloForm.ringId} 
-                                    onChange={e => handleBulkFormChange('ringId', e.target.value)} 
-                                    required 
-                                    disabled={(isLimitReached && !isEditing)}
-                                    onFocus={() => setIsRingIdFocused(true)}
-                                    onBlur={() => setIsRingIdFocused(false)}
-                                    autoComplete="off"
-                                />
-                                {isRingIdFocused && lastRingId && (
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-gray-800 text-sm font-semibold px-3 py-1 rounded-md shadow-lg z-20">
-                                        Anterior: {lastRingId}
-                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-white"></div>
-                                    </div>
-                                )}
-                            </div>
-                            <InputField label="Número de Placa Marcaje (Pm)" value={currentGalloForm.markingId} onChange={e => handleBulkFormChange('markingId', e.target.value)} required disabled={(isLimitReached && !isEditing)}/>
-                            <InputField label="Placa del Criadero (Pc)" value={currentGalloForm.breederPlateId} onChange={e => handleBulkFormChange('breederPlateId', e.target.value)} placeholder="N/A si se deja vacío" disabled={(isLimitReached && !isEditing)}/>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <InputField label="Color del Gallo" value={currentGalloForm.color} onChange={e => handleBulkFormChange('color', e.target.value)} required disabled={(isLimitReached && !isEditing)}/>
-                            <LbsOzInput label="Peso (Lb.Oz)" value={currentGalloForm.weight} onChange={v => handleBulkFormChange('weight', v)} disabled={(isLimitReached && !isEditing)} validator={isWeightInTournamentRange} minWeight={torneo.minWeight} maxWeight={torneo.maxWeight} />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Marca</label>
-                                <select value={currentGalloForm.marca} onChange={e => handleBulkFormChange('marca', e.target.value)} required className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition" disabled={(isLimitReached && !isEditing)}>
-                                    <option value="" disabled>Seleccionar...</option>
-                                    {Object.keys(AGE_OPTIONS_BY_MARCA).sort((a,b) => Number(a) - Number(b)).map(m => <option key={m} value={m}>Marca {m}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Edad</label>
-                                <select value={currentGalloForm.ageMonths} onChange={e => handleBulkFormChange('ageMonths', e.target.value)} required disabled={(isLimitReached && !isEditing) || !currentGalloForm.marca || ageOptionsForBulk.length <= 1} className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition disabled:bg-gray-600">
-                                    <option value="" disabled>Seleccionar...</option>
-                                    {ageOptionsForBulk.map(opt => <option key={opt.ageMonths} value={opt.ageMonths}>{opt.displayText}</option>)}
-                                </select>
-                            </div>
-                            <InputField label="Tipo (Pollo/Gallo)" value={bulkAddTipoEdad} disabled />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Fenotipo</label>
-                                <select value={currentGalloForm.tipoGallo} onChange={e => handleBulkFormChange('tipoGallo', e.target.value as TipoGallo)} required className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition" disabled={(isLimitReached && !isEditing)}>
-                                    {Object.values(TipoGallo).map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="pt-2">
-                            {isEditing ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button type="button" onClick={handleBulkFormSubmit} disabled={isAddButtonDisabled} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed text-center">
-                                        {addButtonText}
-                                    </button>
-                                    <button type="button" onClick={handleCancelEdit} className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">
-                                        Cancelar Edición
-                                    </button>
-                                </div>
-                            ) : (
-                                <button type="button" onClick={handleBulkFormSubmit} disabled={isAddButtonDisabled} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed text-center">
-                                    {addButtonText}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </fieldset>
-                
-                <div className="flex justify-end pt-4 space-x-3 border-t border-gray-700 mt-4">
-                    <button type="button" onClick={onClose} className="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg">
-                        Cerrar
-                    </button>
-                </div>
-            </div>
-        );
+        const baseCuerda = cuerdas.find(c => c.id === selectedCuerdaId);
+        setForm({ 
+            ...initialForm, 
+            cuerdaId: slot.front.id, 
+            breederPlateId: baseCuerda?.breederPlateId === 'N/A' ? '' : baseCuerda?.breederPlateId || '' 
+        });
+        setEditingGallo(null);
     };
-    
-    const bulkModeHeaderContent = (
-      <div className="w-72">
-          <select 
-              value={selectedCuerdaId} 
-              onChange={e => handleCuerdaSelectionChange(e.target.value)} 
-              required 
-              className="w-full bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition"
-              aria-label="Seleccionar Cuerda"
-          >
-              <option value="" disabled>Seleccionar Cuerda...</option>
-              {groupedBaseCuerdas.map(group => (<option key={group.id} value={group.id}>{group.displayText}</option>))}
-          </select>
-      </div>
-    );
 
-    const titleWithTabs = (
-        <>
-            <span className="mr-6 shrink-0">Añadir Gallos</span>
-            <div className="flex-grow relative min-w-0">
-                <div className="front-tabs-container flex items-center border-b border-transparent -mb-[21px] overflow-x-auto pb-2">
-                    {frontsForSelectedCuerda.map((front, index) => {
-                        const currentExistingCount = gallosByCuerda.get(front.id)?.length || 0;
-                        const totalCount = currentExistingCount;
-                        const limit = torneo.roostersPerTeam;
-                        const tabText = limit > 0 ? `F${index + 1} (${totalCount}/${limit})` : `F${index + 1} (${totalCount})`;
-                        return (
-                            <button 
-                                key={front.id} 
-                                onClick={() => handleTabClick(front.id)} 
-                                className={`py-2 px-3 text-sm font-medium transition-all transform whitespace-nowrap ${activeTabCuerdaId === front.id ? 'border-b-2 border-amber-500 text-amber-400' : 'text-gray-300 hover:text-white hover:scale-105'}`}
-                            >
-                                {tabText}
-                            </button>
-                        );
-                    })}
-                     <style>{`
-                        .front-tabs-container::-webkit-scrollbar {
-                            height: 6px;
-                        }
-                        .front-tabs-container::-webkit-scrollbar-track {
-                            background: #2d3748; 
-                            border-radius: 3px;
-                        }
-                        .front-tabs-container::-webkit-scrollbar-thumb {
-                            background: #718096;
-                            border-radius: 3px;
-                        }
-                        .front-tabs-container::-webkit-scrollbar-thumb:hover {
-                            background: #a0aec0;
-                        }
-                    `}</style>
-                </div>
-            </div>
-        </>
-    );
+    // Determine if any field in the form has been modified
+    const isDirty = useMemo(() => {
+        if (editingGallo) {
+            const originalPlate = editingGallo.breederPlateId === 'N/A' ? '' : editingGallo.breederPlateId;
+            return (
+                form.ringId !== editingGallo.ringId ||
+                form.color !== editingGallo.color ||
+                form.weight !== editingGallo.weight ||
+                form.ageMonths !== String(editingGallo.ageMonths) ||
+                form.markingId !== editingGallo.markingId ||
+                form.breederPlateId !== originalPlate ||
+                form.tipoGallo !== editingGallo.tipoGallo ||
+                form.marca !== String(editingGallo.marca)
+            );
+        }
+        // For new gallo: dirty if basic fields are not empty
+        return (
+            form.ringId !== '' ||
+            form.color !== '' ||
+            form.weight !== 0 ||
+            form.ageMonths !== '' ||
+            form.markingId !== '' ||
+            form.marca !== ''
+        );
+    }, [form, editingGallo]);
+
+    // Initial load and handling external changes
+    useEffect(() => {
+        if (isOpen) {
+            if (gallo) {
+                const baseCId = cuerdas.find(c => c.id === gallo.cuerdaId)?.baseCuerdaId || gallo.cuerdaId;
+                setSelectedCuerdaId(baseCId);
+                // When editing an specific gallo from outside, we need to find its slot
+                // (This is triggered when clicking "Edit" in the setup list)
+            } else if (cuerdas.length > 0 && selectedCuerdaId === '') {
+                const firstBase = cuerdas.find(c => !c.baseCuerdaId) || cuerdas[0];
+                setSelectedCuerdaId(firstBase.id);
+            }
+        }
+    }, [isOpen, gallo, cuerdas]);
+
+    // Effect to handle slot selection logic
+    useEffect(() => {
+        if (isOpen && slots.length > 0) {
+            let initialSlot = 0;
+            if (gallo) {
+                const foundSlot = slots.findIndex(s => s.gallo?.id === gallo.id);
+                if (foundSlot !== -1) initialSlot = foundSlot;
+            }
+            setSelectedSlotIndex(initialSlot);
+            
+            const slot = slots[initialSlot];
+            if (slot.gallo) {
+                loadGalloIntoForm(slot.gallo);
+            } else {
+                resetFormForSlot(initialSlot);
+            }
+        }
+    }, [isOpen, selectedCuerdaId, slots.length, gallo?.id]);
+
+    const handleSlotClick = (idx: number) => {
+        setSelectedSlotIndex(idx);
+        const slot = slots[idx];
+        if (slot.gallo) {
+            loadGalloIntoForm(slot.gallo);
+        } else {
+            resetFormForSlot(idx);
+        }
+    };
+
+    const handleCuerdaChange = (baseId: string) => {
+        setSelectedCuerdaId(baseId);
+        // The slot effect will handle the rest
+    };
+
+    const handleSubmit = () => {
+        if (!form.ringId || !form.color || form.weight === 0 || !form.marca || !form.ageMonths) {
+            alert("Por favor completa los campos obligatorios.");
+            return;
+        }
+
+        const data: Omit<Gallo, 'id' | 'tipoEdad'> = {
+            ...form,
+            ageMonths: Number(form.ageMonths),
+            marca: Number(form.marca),
+            breederPlateId: form.breederPlateId.trim() || 'N/A'
+        };
+
+        if (editingGallo) {
+            onSaveSingle(data, editingGallo.id);
+            setEditingGallo({ ...editingGallo, ...data, id: editingGallo.id, tipoEdad: data.ageMonths >= 12 ? TipoEdad.GALLO : TipoEdad.POLLO });
+        } else {
+            onAddSingleGallo(data);
+        }
+    };
+
+    const groupedOptions = useMemo(() => {
+        const baseCuerdas = cuerdas.filter(c => !c.baseCuerdaId);
+        return baseCuerdas.map(bc => {
+            const fronts = cuerdas.filter(c => c.baseCuerdaId === bc.id || c.id === bc.id);
+            const labels = fronts.map((_, i) => `(F${i+1})`).join(' ');
+            return { id: bc.id, label: `${bc.name.replace(/\s\(F\d+\)$/, '')} ${labels}` };
+        });
+    }, [cuerdas]);
+
+    if (!isOpen) return null;
+
+    const ageOptions = form.marca ? (AGE_OPTIONS_BY_MARCA[form.marca] || []) : [];
 
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title={gallo ? 'Editar Gallo' : titleWithTabs} 
-            size="wide"
-            headerContent={gallo ? undefined : bulkModeHeaderContent}
-        >
-            {gallo ? renderSingleEditForm() : renderBulkAddForm()}
-        </Modal>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div className="bg-[#1a1d29] w-full max-w-4xl rounded-xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col">
+                
+                {/* Header Section */}
+                <div className="p-5 flex flex-col md:flex-row items-center justify-between border-b border-gray-800 gap-4">
+                    <div className="flex flex-col md:flex-row items-center gap-6 overflow-x-auto w-full custom-scrollbar pb-2 md:pb-0">
+                        <h2 className="text-2xl font-bold text-[#facc15] whitespace-nowrap">{editingGallo ? 'Editar Gallo' : 'Añadir Gallos'}</h2>
+                        <div className="flex space-x-2 overflow-x-auto pb-1">
+                            {slots.map((slot, i) => {
+                                const isActive = selectedSlotIndex === i;
+                                const isFilled = !!slot.gallo;
+                                return (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => handleSlotClick(i)}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap border ${
+                                            isActive 
+                                            ? 'bg-amber-500 text-black border-amber-500' 
+                                            : isFilled 
+                                                ? 'bg-[#2a2f3e] text-amber-400 border-amber-500/50 hover:bg-[#363b4e]'
+                                                : 'text-gray-500 border-gray-700 hover:text-gray-300'
+                                        }`}
+                                    >
+                                        F{(i % activeFronts.length) + 1} ({i + 1}/{torneo.roostersPerTeam})
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div className="flex items-center space-x-4 shrink-0">
+                        <select 
+                            value={selectedCuerdaId} 
+                            onChange={(e) => handleCuerdaChange(e.target.value)}
+                            className="bg-[#1a1d29] border-2 border-[#facc15] text-white rounded-md px-3 py-1.5 text-sm outline-none min-w-[180px]"
+                        >
+                            {groupedOptions.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                        </select>
+                        <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><XIcon className="w-6 h-6"/></button>
+                    </div>
+                </div>
+
+                <div className="p-8 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
+                    {/* Form Layout - Grid de 3 Columnas - Sin lista intermedia ni botón nuevo */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-6 bg-[#1f2330] p-8 rounded-xl border border-gray-800 shadow-inner">
+                        <InputField label="ID del Anillo (A)" value={form.ringId} onChange={e => setForm({...form, ringId: e.target.value})} />
+                        <InputField label="Número de Placa Marcaje (Pm)" value={form.markingId} onChange={e => setForm({...form, markingId: e.target.value})} />
+                        <InputField label="Placa del Criadero (Pc)" value={form.breederPlateId} onChange={e => setForm({...form, breederPlateId: e.target.value})} placeholder="N/A" />
+                        
+                        <InputField label="Color del Gallo" value={form.color} onChange={e => setForm({...form, color: e.target.value})} />
+                        <LbsOzInput label="Peso (Lb.Oz)" value={form.weight} onChange={v => setForm({...form, weight: v})} />
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Marca</label>
+                            <select value={form.marca} onChange={e => setForm({...form, marca: e.target.value, ageMonths: ''})} className="w-full bg-[#2a2f3e] border border-gray-700 text-gray-200 rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors">
+                                <option value="">Seleccionar...</option>
+                                {Object.keys(AGE_OPTIONS_BY_MARCA).map(m => <option key={m} value={m}>Marca {m}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Edad</label>
+                            <select value={form.ageMonths} onChange={e => setForm({...form, ageMonths: e.target.value})} className="w-full bg-[#2a2f3e] border border-gray-700 text-gray-200 rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors">
+                                <option value="">Seleccionar...</option>
+                                {ageOptions.map(o => <option key={o.ageMonths} value={o.ageMonths}>{o.displayText}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Tipo (Pollo/Gallo)</label>
+                            <input type="text" value={Number(form.ageMonths) >= 12 ? 'Gallo' : 'Pollo'} disabled className="w-full bg-[#2a2f3e] border border-gray-700 text-gray-400 rounded-md px-3 py-2 outline-none opacity-60 font-medium" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1">Fenotipo</label>
+                            <select value={form.tipoGallo} onChange={e => setForm({...form, tipoGallo: e.target.value as TipoGallo})} className="w-full bg-[#2a2f3e] border border-gray-700 text-gray-200 rounded-md px-3 py-2 outline-none focus:border-amber-500 transition-colors">
+                                {Object.values(TipoGallo).map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="md:col-span-3 pt-6">
+                            <button 
+                                onClick={handleSubmit}
+                                className={`w-full ${isDirty ? 'bg-green-600 hover:bg-green-700' : 'bg-[#5c637a] hover:bg-[#6c7491]'} text-white font-bold py-4 rounded-lg transition-all shadow-lg text-lg flex items-center justify-center space-x-2 active:scale-[0.99]`}
+                            >
+                                {editingGallo ? <><PencilIcon className="w-5 h-5"/> <span>Guardar Cambios del Gallo</span></> : <><PlusIcon className="w-5 h-5"/> <span>Añadir Gallo a este Frente</span></>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 flex justify-end bg-[#1a1d29] border-t border-gray-800">
+                    <button onClick={onClose} className="bg-[#facc15] hover:bg-[#eab308] text-black font-bold py-2.5 px-10 rounded-lg transition-colors shadow-md">Cerrar</button>
+                </div>
+            </div>
+        </div>
     );
 };
 

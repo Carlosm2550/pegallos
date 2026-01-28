@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Screen, Cuerda, Gallo, Pelea, Torneo, MatchmakingResults, TipoGallo, TipoEdad, Notification, DailyResult } from './types';
 import { TrophyIcon } from './components/Icons';
@@ -8,7 +9,7 @@ import LiveFightScreen from './components/LiveFightScreen';
 import ResultsScreen from './components/ResultsScreen';
 import TournamentResultsScreen from './components/TournamentResultsScreen';
 import Toaster from './components/Toaster';
-import { DEMO_CUERDAS, DEMO_GALLOS } from './demo-data';
+import PrintableProgramacion from './components/PrintableProgramacion';
 
 // --- TYPE DEFINITIONS ---
 export interface CuerdaFormData {
@@ -16,6 +17,7 @@ export interface CuerdaFormData {
     owner: string;
     city: string;
     frontCount: number;
+    breederPlateId?: string;
 }
 
 // --- UTILITY FUNCTIONS ---
@@ -183,16 +185,8 @@ const App: React.FC = () => {
 
     const handleUpdateTorneo = useCallback((updatedTorneo: Torneo) => setTorneo(updatedTorneo), []);
 
-    const handleLoadDemoData = useCallback(() => {
-        if (window.confirm('¿Deseas cargar los 100 gallos y 10 criaderos de prueba? Esto sobrescribirá tus datos actuales del Día 1.')) {
-            setCuerdas(DEMO_CUERDAS);
-            setGallosByDay(prev => ({ ...prev, [currentDay]: DEMO_GALLOS }));
-            addNotification('Datos de prueba cargados exitosamente.', 'success');
-        }
-    }, [currentDay, addNotification]);
-
     const handleSaveCuerda = useCallback((cuerdaData: CuerdaFormData, currentCuerdaId: string | null) => {
-        const { name, owner, city, frontCount } = cuerdaData;
+        const { name, owner, city, frontCount, breederPlateId } = cuerdaData;
         
         if (currentCuerdaId) { // Editing
             const baseCuerdaToEdit = cuerdas.find(c => c.id === currentCuerdaId);
@@ -241,7 +235,7 @@ const App: React.FC = () => {
                     const existingId = existingFronts[i].id;
                     const index = finalCuerdas.findIndex(c => c.id === existingId);
                     if (index !== -1) {
-                         finalCuerdas[index] = { ...finalCuerdas[index], name: frontName, owner, city };
+                         finalCuerdas[index] = { ...finalCuerdas[index], name: frontName, owner, city, breederPlateId };
                     }
                 } else {
                      finalCuerdas.push({
@@ -249,6 +243,7 @@ const App: React.FC = () => {
                         name: frontName,
                         owner,
                         city,
+                        breederPlateId,
                         baseCuerdaId: baseCuerdaInFinal.id
                     });
                 }
@@ -258,13 +253,14 @@ const App: React.FC = () => {
 
         } else { // Adding
             const baseId = `cuerda-${Date.now()}`;
-            const newCuerdas: Cuerda[] = [{ id: baseId, name: `${name} (F1)`, owner, city }];
+            const newCuerdas: Cuerda[] = [{ id: baseId, name: `${name} (F1)`, owner, city, breederPlateId }];
             for (let i = 1; i < frontCount; i++) {
                 newCuerdas.push({
                     id: `cuerda-${Date.now()}-${i}`,
                     name: `${name} (F${i + 1})`,
                     owner,
                     city,
+                    breederPlateId,
                     baseCuerdaId: baseId
                 });
             }
@@ -272,6 +268,182 @@ const App: React.FC = () => {
             addNotification('Cuerda añadida.', 'success');
         }
     }, [cuerdas, gallosByDay, addNotification]);
+
+    const handleAddGalloToPc = useCallback((galloData: Omit<Gallo, 'id' | 'tipoEdad'>, pc: string, frontNumber: number, targetTotalFronts?: number) => {
+        // En esta función también aplicamos la lógica de anillo único
+        const currentGallos = gallosByDay[currentDay] || [];
+        if (currentGallos.some(g => g.ringId.trim().toLowerCase() === galloData.ringId.trim().toLowerCase())) {
+            // Ya existe un gallo con este ID, no lo agregamos desde la importación masiva
+            return;
+        }
+
+        const baseCuerda = cuerdas.find(c => !c.baseCuerdaId && c.breederPlateId?.trim().toLowerCase() === pc.trim().toLowerCase());
+        if (!baseCuerda) return;
+
+        const baseId = baseCuerda.id;
+        const namePrefix = baseCuerda.name.replace(/\s\(F\d+\)$/, '').trim();
+        const existingFronts = cuerdas.filter(c => c.id === baseId || c.baseCuerdaId === baseId);
+        
+        let updatedCuerdas = [...cuerdas];
+        const ensureUpTo = Math.max(frontNumber, targetTotalFronts || 0);
+
+        if (ensureUpTo > existingFronts.length) {
+            for (let i = existingFronts.length + 1; i <= ensureUpTo; i++) {
+                updatedCuerdas.push({
+                    id: `${baseId}-f${i}`,
+                    name: `${namePrefix} (F${i})`,
+                    owner: baseCuerda.owner,
+                    city: baseCuerda.city,
+                    breederPlateId: baseCuerda.breederPlateId,
+                    baseCuerdaId: baseId
+                });
+            }
+            setCuerdas(updatedCuerdas);
+        }
+
+        const targetFrontSuffix = `(F${frontNumber})`;
+        const targetCuerda = updatedCuerdas.find(c => (c.id === baseId || c.baseCuerdaId === baseId) && c.name.includes(targetFrontSuffix));
+        
+        if (targetCuerda) {
+            const finalGallo: Gallo = {
+                ...galloData,
+                id: `gallo-${Date.now()}-${Math.random()}`,
+                cuerdaId: targetCuerda.id,
+                tipoEdad: galloData.ageMonths >= 12 ? TipoEdad.GALLO : TipoEdad.POLLO
+            };
+            setGallosByDay(prev => ({
+                ...prev,
+                [currentDay]: [...(prev[currentDay] || []), finalGallo]
+            }));
+        }
+    }, [cuerdas, currentDay, gallosByDay]);
+
+    // --- REWRITTEN ROBUST IMPORT FUNCTION WITH STRICT DUPLICATION RULES ---
+    const handleImportCuerdaAndGallos = useCallback((cuerdaData: CuerdaFormData, gallosByFront: { frontNumber: number, gallos: Omit<Gallo, 'id' | 'tipoEdad'>[] }[]) => {
+        const { name, owner, city, frontCount, breederPlateId } = cuerdaData;
+        const normalizedName = name.replace(/\s\(F\d+\)$/, '').trim().toLowerCase();
+        
+        // 1. IDENTIFICACIÓN DE CUERDA (Smart Lookup)
+        // Regla: Si existe un Pc válido, se usa ese Pc para encontrar la cuerda.
+        // Si no hay Pc o no se encuentra, se busca por nombre.
+        
+        const existingBaseCuerda = cuerdas.find(c => {
+            if (c.baseCuerdaId) return false; // Solo buscar en cuerdas base
+
+            const cPc = c.breederPlateId?.trim().toLowerCase();
+            const inputPc = breederPlateId?.trim().toLowerCase();
+            const cName = c.name.replace(/\s\(F\d+\)$/, '').trim().toLowerCase();
+
+            // Prioridad absoluta: Coincidencia de Pc (Placa Criadero)
+            if (cPc && inputPc && cPc !== 'n/a' && inputPc !== 'n/a') {
+                return cPc === inputPc;
+            }
+            // Fallback: Coincidencia de Nombre
+            return cName === normalizedName;
+        });
+        
+        let baseId: string;
+        let finalCuerdas = [...cuerdas];
+        let messageAction = "";
+        
+        if (existingBaseCuerda) {
+            // --- MERGE SCENARIO (Cuerda ya existe) ---
+            baseId = existingBaseCuerda.id;
+            messageAction = "actualizada";
+
+            const existingFronts = cuerdas.filter(c => c.id === baseId || c.baseCuerdaId === baseId);
+            const maxFrontInImport = Math.max(...gallosByFront.map(g => g.frontNumber), 0);
+            const maxFrontNeeded = Math.max(frontCount, maxFrontInImport);
+            
+            // Crear frentes faltantes
+            if (maxFrontNeeded > existingFronts.length) {
+                const namePrefix = existingBaseCuerda.name.replace(/\s\(F\d+\)$/, '').trim();
+                for (let i = existingFronts.length + 1; i <= maxFrontNeeded; i++) {
+                     finalCuerdas.push({
+                        id: `${baseId}-f${i}`,
+                        name: `${namePrefix} (F${i})`,
+                        owner: existingBaseCuerda.owner,
+                        city: existingBaseCuerda.city,
+                        breederPlateId: existingBaseCuerda.breederPlateId,
+                        baseCuerdaId: baseId
+                    });
+                }
+            }
+        } else {
+            // --- CREATE NEW SCENARIO (Cuerda nueva) ---
+            baseId = `cuerda-ai-${Date.now()}`;
+            messageAction = "creada";
+            
+            for (let i = 0; i < frontCount; i++) {
+                const frontId = i === 0 ? baseId : `${baseId}-f${i + 1}`;
+                const frontName = `${name} (F${i + 1})`;
+                finalCuerdas.push({
+                    id: frontId,
+                    name: frontName,
+                    owner,
+                    city,
+                    breederPlateId,
+                    baseCuerdaId: i === 0 ? undefined : baseId
+                });
+            }
+        }
+        
+        setCuerdas(finalCuerdas);
+
+        // 2. Mapeo Seguro de Frentes
+        const frontIdMap = new Map<number, string>();
+        finalCuerdas.filter(c => c.id === baseId || c.baseCuerdaId === baseId).forEach(c => {
+             const match = c.name.match(/\(F(\d+)\)$/);
+             if (match) {
+                 frontIdMap.set(parseInt(match[1]), c.id);
+             } else {
+                 frontIdMap.set(1, c.id);
+             }
+        });
+
+        // 3. PROCESAMIENTO DE GALLOS (Filtrado estricto por ID de Anillo)
+        const currentGallos = gallosByDay[currentDay] || [];
+        const existingRingIds = new Set(currentGallos.map(g => g.ringId.trim().toLowerCase()));
+        
+        const newGallos: Gallo[] = [];
+        let duplicateCount = 0;
+
+        gallosByFront.forEach(group => {
+            const targetCuerdaId = frontIdMap.get(group.frontNumber) || baseId; 
+            
+            group.gallos.forEach((g, idx) => {
+                const ringKey = g.ringId.trim().toLowerCase();
+                
+                // REGLA DE ORO: Solo el Anillo determina duplicidad.
+                // Ignoramos peso, color, edad, etc. Si el anillo existe, el gallo existe.
+                if (existingRingIds.has(ringKey)) {
+                    duplicateCount++;
+                } else {
+                    newGallos.push({
+                        ...g,
+                        id: `gallo-ai-${Date.now()}-${group.frontNumber}-${idx}-${Math.random()}`,
+                        cuerdaId: targetCuerdaId,
+                        tipoEdad: g.ageMonths < 12 ? TipoEdad.POLLO : TipoEdad.GALLO,
+                    });
+                    existingRingIds.add(ringKey); // Evitar duplicados en el mismo lote
+                }
+            });
+        });
+
+        if (newGallos.length > 0) {
+            setGallosByDay(prev => ({
+                ...prev,
+                [currentDay]: [...(prev[currentDay] || []), ...newGallos]
+            }));
+        }
+
+        let msg = `Cuerda "${name}" ${messageAction}.`;
+        if (newGallos.length > 0) msg += ` Se agregaron ${newGallos.length} gallos nuevos.`;
+        if (duplicateCount > 0) msg += ` (Se omitieron ${duplicateCount} duplicados por ID de anillo).`;
+        
+        addNotification(msg, 'success', 5000);
+        
+    }, [currentDay, cuerdas, gallosByDay, addNotification]);
     
     const handleDeleteCuerda = useCallback((cuerdaIdToDelete: string) => {
         const cuerdaToDelete = cuerdas.find(c => c.id === cuerdaIdToDelete);
@@ -492,6 +664,14 @@ const App: React.FC = () => {
     const handleShowTournamentResults = useCallback(() => {
         setScreen(Screen.TOURNAMENT_RESULTS);
     }, []);
+
+    const handleGlobalPrint = () => {
+        if (viewingMatchmakingResults && viewingMatchmakingResults.mainFights.length > 0) {
+            window.print();
+        } else {
+            addNotification('No hay peleas generadas para imprimir en este día.', 'info');
+        }
+    };
     
     const isTournamentFinished = useMemo(() => dailyResults.length >= torneo.tournamentDays, [dailyResults, torneo.tournamentDays]);
     
@@ -546,6 +726,7 @@ const App: React.FC = () => {
                     onUpdateTorneo={handleUpdateTorneo}
                     onStartMatchmaking={handleStartMatchmaking}
                     onSaveCuerda={handleSaveCuerda}
+                    onImportCuerdaAndGallos={handleImportCuerdaAndGallos}
                     onDeleteCuerda={handleDeleteCuerda}
                     onSaveGallo={handleSaveGallo}
                     onAddSingleGallo={handleAddSingleGallo}
@@ -556,17 +737,33 @@ const App: React.FC = () => {
                     onGoToMatchmaking={() => setScreen(Screen.MATCHMAKING)}
                     isReadOnly={isReadOnly}
                     matchmakingResultsExist={!!viewingMatchmakingResults}
-                    onLoadDemoData={handleLoadDemoData}
+                    onAddGalloToPc={handleAddGalloToPc}
                 />;
         }
     };
     
     const dayTabs = Array.from({ length: torneo.tournamentDays }, (_, i) => i + 1);
+    const hasFightsToPrint = !!viewingMatchmakingResults && viewingMatchmakingResults.mainFights.length > 0;
 
     return (
         <div className="bg-gray-900 text-gray-200 min-h-screen swirl-bg">
             <Toaster notifications={notifications} onDismiss={dismissNotification} />
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+            
+            {/* ÚNICO BOTÓN FLOTANTE DE IMPRESIÓN */}
+            {hasFightsToPrint && (
+                <button 
+                    onClick={handleGlobalPrint}
+                    title="Imprimir Programación de Peleas"
+                    className="fixed top-6 right-6 z-[100] p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 print:hidden group flex items-center justify-center"
+                >
+                    <svg className="w-8 h-8 text-amber-400 group-hover:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    <span className="max-w-0 overflow-hidden group-hover:max-w-xs group-hover:ml-2 transition-all duration-300 whitespace-nowrap text-amber-400 font-bold uppercase text-xs">Imprimir Programación</span>
+                </button>
+            )}
+
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8 relative">
                 <header className="flex items-center space-x-4 mb-8">
                     <TrophyIcon className="w-10 h-10 text-amber-400" />
                     <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-wider">GalleraPro <span className="text-amber-500 font-light">- 100% Peleas de gallos</span></h1>
@@ -623,6 +820,17 @@ const App: React.FC = () => {
                     © {new Date().getFullYear()} GalleraPro. Todos los derechos reservados.
                 </footer>
             </div>
+
+            {/* CONTENIDO IMPRIMIBLE (OCULTO POR DEFECTO EN PANTALLA) */}
+            {viewingMatchmakingResults && (
+                <PrintableProgramacion 
+                    peleas={viewingMatchmakingResults.mainFights} 
+                    cuerdas={cuerdas} 
+                    torneoName={torneo.name} 
+                    date={torneo.date} 
+                    day={torneo.tournamentDays > 1 ? viewingDay : undefined}
+                />
+            )}
         </div>
     );
 };
