@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+      // ESTA ES LA LINEA MAGICA PARA QUE FUNCIONE EN GITHUB
+      base: '/pegallos/',
       server: {
         port: 3000,
         host: '0.0.0.0',
