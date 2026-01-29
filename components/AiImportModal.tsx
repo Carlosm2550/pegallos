@@ -375,75 +375,76 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                 ) : (
                     <div className="space-y-5">
                         {status && (
-                            <div className={`p-3 rounded-lg text-sm font-semibold text-center ${status.includes('Error') ? 'bg-red-900/40 text-red-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                            <div className={`p-3 rounded-lg text-base font-semibold text-center ${status.includes('Error') ? 'bg-red-900/40 text-red-300' : 'bg-blue-900/40 text-blue-300'}`}>
                                 {status}
                             </div>
                         )}
                         
                         {scannedData && (
-                            <div className="bg-gray-800/40 p-6 rounded-2xl border border-gray-700 space-y-5">
+                            <div className="bg-gray-800/40 p-4 md:p-6 rounded-2xl border border-gray-700 space-y-5">
                                 <div className="flex items-center justify-between border-b border-gray-700 pb-3">
-                                    <h4 className="font-bold text-amber-400 flex items-center space-x-2">
-                                        {scannedData.isNewCuerda ? <UsersIcon className="w-5 h-5"/> : <RoosterIcon className="w-5 h-5"/>}
+                                    <h4 className="font-bold text-amber-400 flex items-center space-x-2 text-lg">
+                                        {scannedData.isNewCuerda ? <UsersIcon className="w-6 h-6"/> : <RoosterIcon className="w-6 h-6"/>}
                                         <span className="uppercase tracking-wide">
                                             {scannedData.isNewCuerda ? 'Detección: Registro Completo' : 'Detección: Nota Rápida (Solo Gallos)'}
                                         </span>
                                     </h4>
-                                    <span className="text-xs font-mono bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20">
+                                    <span className="text-sm font-mono bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20">
                                         {totalGallosCount} gallos detectados
                                     </span>
                                 </div>
 
                                 {scannedData.gallosPerFront && (
                                     <div className="bg-green-900/30 p-2 rounded text-center border border-green-700/50">
-                                        <p className="text-green-400 text-sm font-bold">
+                                        <p className="text-green-400 text-base font-bold">
                                             ¡Detectado! Se crearán {scannedData.gallosPerFront} frentes por cuerda.
                                         </p>
                                     </div>
                                 )}
                                 
                                 {scannedData.isNewCuerda && scannedData.cuerdaInfo && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-[#1a1d29] p-4 rounded-xl border border-gray-700/50">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-[#1a1d29] p-5 rounded-xl border border-gray-700/50 shadow-md">
                                         <div className="space-y-1">
-                                            <span className="text-gray-500 block uppercase">Cuerda:</span> 
-                                            <span className="text-white font-bold">{scannedData.cuerdaInfo.name}</span>
+                                            <span className="text-gray-400 block uppercase font-semibold">Cuerda:</span> 
+                                            <span className="text-white font-bold text-base">{scannedData.cuerdaInfo.name}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-gray-500 block uppercase">Dueño:</span> 
-                                            <span className="text-white">{scannedData.cuerdaInfo.owner}</span>
+                                            <span className="text-gray-400 block uppercase font-semibold">Dueño:</span> 
+                                            <span className="text-white text-base">{scannedData.cuerdaInfo.owner}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-gray-500 block uppercase">Ciudad:</span> 
-                                            <span className="text-white">{scannedData.cuerdaInfo.city}</span>
+                                            <span className="text-gray-400 block uppercase font-semibold">Ciudad:</span> 
+                                            <span className="text-white text-base">{scannedData.cuerdaInfo.city}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-gray-500 block uppercase">Placa Pc:</span> 
-                                            <span className="text-amber-400 font-mono font-bold">{scannedData.cuerdaInfo.breederPlateId}</span>
+                                            <span className="text-gray-400 block uppercase font-semibold">Placa Pc:</span> 
+                                            <span className="text-amber-400 font-mono font-bold text-base">{scannedData.cuerdaInfo.breederPlateId}</span>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+                                <div className="max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4 pr-2">
                                     {scannedData.fronts.map((f, i) => (
-                                        <div key={i} className="space-y-2 bg-[#1a1d29]/40 p-3 rounded-xl">
-                                            <div className="text-[10px] font-black text-gray-500 uppercase flex items-center gap-2">
+                                        <div key={i} className="space-y-2 bg-[#1a1d29]/40 p-4 rounded-xl">
+                                            <div className="text-xs font-black text-gray-500 uppercase flex items-center gap-2 mb-2">
                                                 <div className="h-[1px] flex-grow bg-gray-700"></div>
                                                 Frente {f.frontNumber} <span className="text-gray-500 font-normal ml-1">(Detectado en Nota)</span>
                                                 <div className="h-[1px] flex-grow bg-gray-700"></div>
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {/* Cambio a Grid de 3 columnas en pantallas grandes para aprovechar el ancho */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {f.gallos.map((g, gi) => (
-                                                    <div key={gi} className="bg-gray-800/80 p-3 rounded-lg text-xs border border-gray-700 flex justify-between items-center group hover:border-amber-500/50 transition-colors">
+                                                    <div key={gi} className="bg-gray-800/80 p-3 rounded-lg text-sm border border-gray-700 flex justify-between items-center group hover:border-amber-500/50 transition-colors shadow-sm">
                                                         <div className="space-y-1">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="text-white font-bold">Anillo {g.ringId}</span>
-                                                                <span className="text-gray-400">| {g.color}</span>
+                                                                <span className="text-white font-bold text-base">A: {g.ringId}</span>
+                                                                <span className="text-gray-300">| {g.color}</span>
                                                             </div>
-                                                            <div className="text-[10px] text-gray-500 font-mono">Pc: {g.breederPlateId}</div>
+                                                            <div className="text-xs text-gray-400 font-mono">Pc: {g.breederPlateId}</div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="font-bold text-amber-400 text-sm">{g.weightLbsOz} <span className="text-[10px] font-normal opacity-70">Lb.Oz</span></div>
-                                                            <div className="text-[10px] text-gray-500">{g.ageMonths}m | {g.fenotipo}</div>
+                                                            <div className="font-bold text-amber-400 text-base">{g.weightLbsOz} <span className="text-xs font-normal opacity-70">Lb.Oz</span></div>
+                                                            <div className="text-xs text-gray-400">{g.ageMonths}m | {g.fenotipo}</div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -462,11 +463,11 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                         )}
 
                         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
-                            <button onClick={() => {setScannedData(null); onClose();}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2.5 px-6 rounded-lg transition-colors">Cancelar</button>
+                            <button onClick={() => {setScannedData(null); onClose();}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg transition-colors">Cancelar</button>
                             <button 
                                 onClick={confirmImport} 
                                 disabled={isProcessing || !scannedData} 
-                                className="bg-amber-500 hover:bg-amber-600 text-black font-black py-2.5 px-10 rounded-xl disabled:opacity-30 shadow-[0_0_20px_rgba(251,191,36,0.2)] transition-all transform active:scale-95"
+                                className="bg-amber-500 hover:bg-amber-600 text-black font-black py-3 px-12 rounded-xl disabled:opacity-30 shadow-[0_0_20px_rgba(251,191,36,0.2)] transition-all transform active:scale-95"
                             >
                                 Confirmar Importación
                             </button>
