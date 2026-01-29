@@ -70,8 +70,8 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
 
     const processImage = async (base64Data: string) => {
-        // Usar la clave del usuario si existe, sino intentar con la de entorno (fallback)
-        const activeKey = userApiKey || process.env.API_KEY;
+        // Prioridad: 1. Clave Usuario, 2. Variable Entorno, 3. Clave Default Solicitada
+        const activeKey = userApiKey || process.env.API_KEY || "AQ.Ab8RN6LMYxXIKIOFj3zGPFgjDLjJamlkifsOUdUR_JIvZZ4pZwes";
 
         if (!activeKey) {
             setStatus('Error: No se encontró una API Key. Por favor configura tu clave haciendo clic en el icono de llave.');
