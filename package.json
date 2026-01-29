@@ -1,4 +1,5 @@
 {
+ npm install gh-pages --save-dev
   "name": "galleraproia",
   "private": true,
   "version": "0.0.0",
