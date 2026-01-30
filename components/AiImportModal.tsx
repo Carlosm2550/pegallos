@@ -47,7 +47,7 @@ interface AiImportModalProps {
     onAddGalloToPc: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, pc: string, frontNumber: number, targetTotalFronts?: number) => void;
 }
 
-// MOVED OUTSIDE to prevent re-renders and focus loss
+// Componente InputLike fuera para mantener el foco
 const InputLike = ({ value, onChange, label, className = "", placeholder = "" }: { value: string | number, onChange: (val: string) => void, label?: string, className?: string, placeholder?: string }) => (
     <div className="relative group w-full">
         {label && <label className="text-[10px] text-gray-500 uppercase font-bold absolute -top-3 left-1 bg-[#1a1d29] px-1 z-10">{label}</label>}
@@ -98,40 +98,45 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
         setStatus('Analizando documento con IA...');
         
         try {
+            // PROMPT OPTIMIZADO: Lógica en Cascada y Estricta
             const prompt = `
-                Actúa como un analista de datos experto en torneos de gallos. Tu tarea es extraer información estructurada de una imagen (manuscrita o impresa) siguiendo ESTRICTAMENTE los siguientes pasos lógicos.
+                Actúa como un digitador de datos experto y estricto. Tu trabajo es transcribir EXACTAMENTE lo que ves en la imagen al formato JSON requerido.
+                
+                REGLA DE ORO: NO INVENTES DATOS. NO AUTOCOMPLETES NOMBRES. Si dice "Martin", escribe "Martin", NO escribas "Martin Martinez". Si la ciudad no está escrita, déjala vacía string vacío "".
 
-                PASO 1: ANÁLISIS DE TIPO DE DOCUMENTO
-                - Observa la parte superior de la imagen.
-                - ¿Hay campos explícitos etiquetados como "Cuerda", "Dueño/Propietario", "Ciudad"?
-                - SI LOS HAY: Establece 'isNewCuerda' = true. Ve al PASO 2.
-                - SI NO LOS HAY (es solo una lista de gallos): Establece 'isNewCuerda' = false. Salta al PASO 4.
+                Procesa la imagen en CASCADA (de arriba a abajo):
 
-                PASO 2: EXTRACCIÓN DE CABECERA (Solo si isNewCuerda = true)
-                - Busca el nombre de la Cuerda.
-                - Busca el Dueño. IMPORTANTE: Extrae SOLO el nombre de la persona. Si al lado del nombre hay una ciudad, un teléfono o una dirección, NO LOS INCLUYAS en el campo 'owner'. Ponlos en sus campos respectivos o ignóralos.
-                - Busca la Ciudad. Si no está explícita, búscala al lado del nombre del dueño.
-                - Busca la 'Placa de Criadero' etiquetada como 'Pc', 'Placa', o un código alfanumérico destacado (ej: 'LMS-34').
-                - Busca texto como "X gallos por frente" para llenar 'gallosPerFront'.
+                --- FASE 1: CABECERA (Datos de la Cuerda) ---
+                Busca en la parte superior textos etiquetados como: "Cuerda", "Dueño", "Propietario", "Ciudad", "Pc".
+                1. Nombre Cuerda: El nombre del equipo o partido.
+                2. Dueño: El nombre de la persona. TRANSCRIBE LITERALMENTE. No agregues apellidos si no están escritos.
+                3. Ciudad: Busca explícitamente una ubicación geográfica. Si no hay, devuelve "".
+                4. Placa Pc (Placa de Criadero): Busca "Pc", "Placa Cuerda" o un código alfanumérico general (ej: LMS). OJO: No confundir con "Pm" o números de placa individuales de los gallos.
+                
+                -> Si encontraste estos datos de cabecera, establece 'isNewCuerda' = true.
+                -> Si NO hay cabecera y es solo una lista de gallos, establece 'isNewCuerda' = false.
 
-                PASO 3: DETECCIÓN DE FRENTES
-                - Busca palabras clave como "Frente 1", "Frente 2", "F1", "F2" encima de grupos de filas.
-                - Si no hay distinción visual, asume que todos son del "Frente 1".
+                --- FASE 2: ESTRUCTURA DE FRENTES ---
+                Busca separadores visuales o textos como "Frente 1", "Frente 2", "1er Frente", etc.
+                Si no hay distinción explícita, asume que todos los gallos pertenecen al "Frente 1".
 
-                PASO 4: EXTRACCIÓN DE FILAS (GALLOS)
-                - Extrae cada fila de la tabla o lista.
-                - Columna 'Anillo' (A): Es el ID vital. No confundir con la Placa.
-                - Columna 'Placa Marcaje' (Pm): Número de placa metálica.
-                - Columna 'Placa Criadero' (Pc): Si el documento es una "Nota Rápida" (Paso 1 fue NO), este dato es OBLIGATORIO por cada gallo para saber a qué cuerda pertenece.
-                - Peso: Formatos posibles "3.14", "3-14", "3,14", "3 libras 14 onzas". Convertir a formato texto "Lb.Oz".
-                - Edad: En meses.
-                - Fenotipo/Color: "Giro", "Jabao", etc. Si dice "pava" o "liso", eso va en 'fenotipo'.
+                --- FASE 3: FILAS DE DATOS (Gallos) ---
+                Extrae cada gallo fila por fila. Mapea las columnas visuales a estos campos:
+                
+                - Anillo (RingId): Identificador principal. (Obligatorio)
+                - Placa Marcaje (Pm): Número de placa metálica del gallo. (Diferente a Pc).
+                - Placa Criadero (Pc): A veces se repite en cada fila. Si la columna dice "Pc", es este campo.
+                - Color: Ej: Zambo, Giro, Pinto, Canaguey.
+                - Fenotipo/Tipo: Ej: Liso, Pava, Bolo. 
+                - Peso: Transcribe el número. Ej: "3.14" o "3,14".
+                - Edad: Número de meses.
+                - Marca: Año o número de marca (ej: 12).
 
-                REGLAS DE LIMPIEZA DE DATOS (CRÍTICO):
-                1. Campo 'owner': NO debe contener la ciudad. Ejemplo INCORRECTO: "Juan Perez Bogotá". CORRECTO: Owner="Juan Perez", City="Bogotá".
-                2. Campo 'breederPlateId' (Pc): Elimina espacios extra. Ejemplo: " Lms 123 " -> "Lms123".
+                NOTAS SOBRE PLACAS:
+                - 'markingId' = Placa de Marcaje (Pm). Suele ser un número único por gallo.
+                - 'breederPlateId' = Placa de Criadero (Pc). Suele ser letras+números (ej: JLM) y se repite o está en la cabecera.
 
-                Salida JSON estricta basada en el esquema proporcionado.
+                Salida JSON estricta. Usa string vacío "" para campos de texto no encontrados, no uses null.
             `;
 
             const response = await ai.models.generateContent({
@@ -185,7 +190,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                                                     fenotipo: { type: Type.STRING },
                                                     marca: { type: Type.INTEGER }
                                                 },
-                                                required: ["ringId", "color", "weightLbsOz", "ageMonths", "fenotipo", "marca", "breederPlateId"]
+                                                required: ["ringId", "color", "weightLbsOz", "ageMonths", "fenotipo", "marca"]
                                             }
                                         }
                                     },
@@ -201,8 +206,22 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             const text = response.text;
             if (!text) throw new Error("No response from AI");
             const data = JSON.parse(text) as ScannedData;
+            
+            // Post-procesamiento para asegurar consistencia
+            if (data.cuerdaInfo) {
+                // Si la IA detectó un Pc en la cabecera, asegurémonos de que se propague si los gallos no tienen
+                const globalPc = data.cuerdaInfo.breederPlateId;
+                if (globalPc) {
+                    data.fronts.forEach(f => {
+                        f.gallos.forEach(g => {
+                            if (!g.breederPlateId) g.breederPlateId = globalPc;
+                        });
+                    });
+                }
+            }
+
             setScannedData(data);
-            setStatus(''); // Limpiar status al éxito para ahorrar espacio
+            setStatus(''); 
         } catch (error) {
             console.error("AI Import Error:", error);
             setStatus('Error al procesar la imagen.');
@@ -249,7 +268,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             const processedGallosByFront = fronts.map(f => ({
                 frontNumber: f.frontNumber,
                 gallos: f.gallos.map(g => {
-                    const weightParts = (g.weightLbsOz || "0.0").split('.');
+                    const weightParts = (g.weightLbsOz || "0.0").replace(',', '.').split('.');
                     const lbs = parseInt(weightParts[0]) || 0;
                     const oz = parseInt(weightParts[1]) || 0;
                     return {
@@ -290,7 +309,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                     );
                     
                     if (matchingCuerdas.length > 0) {
-                        const weightParts = (g.weightLbsOz || "0.0").split('.');
+                        const weightParts = (g.weightLbsOz || "0.0").replace(',', '.').split('.');
                         const lbs = parseInt(weightParts[0]) || 0;
                         const oz = parseInt(weightParts[1]) || 0;
 
