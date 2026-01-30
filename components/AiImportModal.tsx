@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import Modal from './Modal';
 import { Gallo, TipoGallo, TipoEdad, Cuerda, Torneo } from '../types';
-import { RoosterIcon, PlusIcon, UsersIcon, KeyIcon, CheckIcon } from './Icons';
+import { RoosterIcon, PlusIcon, UsersIcon, KeyIcon, CheckIcon, PencilIcon } from './Icons';
 import { CuerdaFormData } from '../App';
 
 interface ScannedCuerdaInfo {
@@ -32,7 +32,7 @@ interface ScannedData {
     isNewCuerda: boolean; 
     cuerdaInfo?: ScannedCuerdaInfo;
     fronts: ScannedFrontGroup[];
-    gallosPerFront?: number; // Nueva propiedad detectada
+    gallosPerFront?: number;
 }
 
 interface AiImportModalProps {
@@ -46,6 +46,21 @@ interface AiImportModalProps {
     onSaveGallo: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, currentGalloId: string) => void;
     onAddGalloToPc: (galloData: Omit<Gallo, 'id' | 'tipoEdad'>, pc: string, frontNumber: number, targetTotalFronts?: number) => void;
 }
+
+// MOVED OUTSIDE to prevent re-renders and focus loss
+const InputLike = ({ value, onChange, label, className = "", placeholder = "" }: { value: string | number, onChange: (val: string) => void, label?: string, className?: string, placeholder?: string }) => (
+    <div className="relative group w-full">
+        {label && <label className="text-[10px] text-gray-500 uppercase font-bold absolute -top-3 left-1 bg-[#1a1d29] px-1 z-10">{label}</label>}
+        <input 
+            type="text" 
+            value={value} 
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className={`w-full bg-gray-900/50 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none transition-colors ${className}`}
+        />
+        <PencilIcon className="w-3 h-3 text-gray-600 absolute right-2 top-2.5 opacity-0 group-hover:opacity-100 pointer-events-none" />
+    </div>
+);
 
 const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas, gallos, torneo, onImportFullData, onAddSingleGallo, onSaveGallo, onAddGalloToPc }) => {
     const [isProcessing, setIsProcessing] = useState(false);
@@ -70,18 +85,17 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`;
 
     const processImage = async (base64Data: string) => {
-        // Prioridad: 1. Clave Usuario, 2. Variable Entorno, 3. Clave Default Solicitada
         const activeKey = userApiKey || process.env.API_KEY || "AQ.Ab8RN6LMYxXIKIOFj3zGPFgjDLjJamlkifsOUdUR_JIvZZ4pZwes";
 
         if (!activeKey) {
-            setStatus('Error: No se encontró una API Key. Por favor configura tu clave haciendo clic en el icono de llave.');
+            setStatus('Error: No se encontró una API Key.');
             return;
         }
 
         const ai = new GoogleGenAI({ apiKey: activeKey });
 
         setIsProcessing(true);
-        setStatus('Analizando documento con IA (Procesamiento Avanzado)...');
+        setStatus('Analizando documento con IA...');
         
         try {
             const prompt = `
@@ -121,7 +135,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             `;
 
             const response = await ai.models.generateContent({
-                model: "gemini-2.0-flash", // Modelo más rápido y económico
+                model: "gemini-2.0-flash",
                 contents: {
                     parts: [
                         { text: prompt },
@@ -138,15 +152,15 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                     responseSchema: {
                         type: Type.OBJECT,
                         properties: {
-                            isNewCuerda: { type: Type.BOOLEAN, description: "True si hay cabecera con Nombre Cuerda/Dueño. False si es solo lista de gallos." },
+                            isNewCuerda: { type: Type.BOOLEAN },
                             gallosPerFront: { type: Type.INTEGER, nullable: true },
                             cuerdaInfo: {
                                 type: Type.OBJECT,
                                 nullable: true,
                                 properties: {
                                     name: { type: Type.STRING },
-                                    owner: { type: Type.STRING, description: "Solo el nombre de la persona. Sin ciudad." },
-                                    city: { type: Type.STRING, description: "La ciudad extraída." },
+                                    owner: { type: Type.STRING },
+                                    city: { type: Type.STRING },
                                     frontCount: { type: Type.INTEGER },
                                     breederPlateId: { type: Type.STRING }
                                 }
@@ -156,18 +170,18 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                                 items: {
                                     type: Type.OBJECT,
                                     properties: {
-                                        frontNumber: { type: Type.INTEGER, description: "El número de frente detectado (1 por defecto)." },
+                                        frontNumber: { type: Type.INTEGER },
                                         gallos: {
                                             type: Type.ARRAY,
                                             items: {
                                                 type: Type.OBJECT,
                                                 properties: {
-                                                    ringId: { type: Type.STRING, description: "Anillo (A)" },
+                                                    ringId: { type: Type.STRING },
                                                     color: { type: Type.STRING },
                                                     weightLbsOz: { type: Type.STRING },
                                                     ageMonths: { type: Type.INTEGER },
-                                                    markingId: { type: Type.STRING, description: "Placa de Marcaje (Pm)" },
-                                                    breederPlateId: { type: Type.STRING, description: "Placa del Criadero (Pc). Crítico en notas rápidas." },
+                                                    markingId: { type: Type.STRING },
+                                                    breederPlateId: { type: Type.STRING },
                                                     fenotipo: { type: Type.STRING },
                                                     marca: { type: Type.INTEGER }
                                                 },
@@ -188,13 +202,31 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             if (!text) throw new Error("No response from AI");
             const data = JSON.parse(text) as ScannedData;
             setScannedData(data);
-            setStatus('¡Lectura completada con éxito!');
+            setStatus(''); // Limpiar status al éxito para ahorrar espacio
         } catch (error) {
             console.error("AI Import Error:", error);
-            setStatus('Error al procesar la imagen. Verifica tu API Key o la legibilidad de la foto.');
+            setStatus('Error al procesar la imagen.');
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    // Funciones para actualizar el estado editable
+    const updateCuerdaField = (field: keyof ScannedCuerdaInfo, value: any) => {
+        if (!scannedData || !scannedData.cuerdaInfo) return;
+        setScannedData({
+            ...scannedData,
+            cuerdaInfo: { ...scannedData.cuerdaInfo, [field]: value }
+        });
+    };
+
+    const updateGalloField = (frontIndex: number, galloIndex: number, field: string, value: any) => {
+        if (!scannedData) return;
+        const newFronts = [...scannedData.fronts];
+        const newGallos = [...newFronts[frontIndex].gallos];
+        newGallos[galloIndex] = { ...newGallos[galloIndex], [field]: value };
+        newFronts[frontIndex] = { ...newFronts[frontIndex], gallos: newGallos };
+        setScannedData({ ...scannedData, fronts: newFronts });
     };
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,11 +243,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
 
         const targetFrontCount = scannedData.gallosPerFront;
 
-        // Pasamos todos los datos a App.tsx. 
-        // La lógica de duplicados (Ring ID único) y agrupación (Pc única) se maneja allí de forma insensible a mayúsculas.
-        
         if (scannedData.isNewCuerda && scannedData.cuerdaInfo) {
-            // ESCENARIO 1: Datos de Cuerda + Gallos (CABECERA DETECTADA)
             const { cuerdaInfo, fronts } = scannedData;
             
             const processedGallosByFront = fronts.map(f => ({
@@ -230,7 +258,7 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                         weight: (lbs * 16) + oz, 
                         ageMonths: g.ageMonths,
                         markingId: g.markingId, 
-                        breederPlateId: g.breederPlateId || cuerdaInfo.breederPlateId, // Si el gallo no tiene Pc específica, usa la de la cabecera
+                        breederPlateId: g.breederPlateId || cuerdaInfo.breederPlateId,
                         tipoGallo: g.fenotipo.toLowerCase().includes('pava') ? TipoGallo.PAVA : TipoGallo.LISO,
                         marca: g.marca, 
                         cuerdaId: ''
@@ -249,21 +277,14 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             }, processedGallosByFront);
             
         } else {
-            // ESCENARIO 2: Solo gallos (NOTA RÁPIDA - Buscan su cuerda por Pc)
             let addedCount = 0;
             let missingPcs = new Set<string>();
 
             scannedData.fronts.forEach(frontGroup => {
                 frontGroup.gallos.forEach(g => {
-                    // En notas rápidas, el PC del gallo es vital para encontrar su cuerda
                     const scanPc = g.breederPlateId ? g.breederPlateId.trim().toLowerCase() : '';
-                    
-                    if (!scanPc) {
-                        // Si es nota rápida y un gallo no tiene Pc, no sabemos a dónde va.
-                        return;
-                    }
+                    if (!scanPc) return;
 
-                    // Buscamos si existe la cuerda por Pc (insensible a mayúsculas)
                     const matchingCuerdas = cuerdas.filter(c => 
                         c.breederPlateId && c.breederPlateId.trim().toLowerCase() === scanPc
                     );
@@ -285,7 +306,6 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                             cuerdaId: ''
                         };
 
-                        // Intentamos añadirlo al frente específico detectado en la nota
                         onAddGalloToPc(galloData, g.breederPlateId, frontGroup.frontNumber, targetFrontCount);
                         addedCount++;
                     } else {
@@ -297,8 +317,6 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             if (addedCount === 0 && missingPcs.size > 0) {
                 const pcs = Array.from(missingPcs).join(', ');
                alert(`No se encontraron cuerdas registradas con las placas (Pc): ${pcs}. \n\nPrimero crea la cuerda manualmente con su Pc correspondiente.`);
-            } else if (addedCount > 0) {
-                // Éxito parcial o total handled by notifications in App.tsx
             }
         }
         
@@ -320,20 +338,10 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                         className="bg-transparent border-none text-xs text-white px-2 py-1 outline-none w-48 placeholder-gray-500"
                         autoFocus
                     />
-                    <button 
-                        onClick={handleSaveKey}
-                        className="bg-amber-500 hover:bg-amber-600 text-black p-1 rounded transition-colors"
-                        title="Guardar Key"
-                    >
-                        <CheckIcon className="w-3 h-3" />
-                    </button>
+                    <button onClick={handleSaveKey} className="bg-amber-500 hover:bg-amber-600 text-black p-1 rounded transition-colors"><CheckIcon className="w-3 h-3" /></button>
                 </div>
             ) : (
-                <button 
-                    onClick={() => setIsKeyInputOpen(true)}
-                    className={`p-2 rounded-lg transition-colors ${userApiKey ? 'text-green-400 hover:text-green-300 bg-green-900/20' : 'text-gray-400 hover:text-white bg-gray-700/30'}`}
-                    title={userApiKey ? "API Key Configurada" : "Configurar API Key"}
-                >
+                <button onClick={() => setIsKeyInputOpen(true)} className={`p-2 rounded-lg transition-colors ${userApiKey ? 'text-green-400 hover:text-green-300 bg-green-900/20' : 'text-gray-400 hover:text-white bg-gray-700/30'}`}>
                     <KeyIcon className="w-5 h-5" />
                 </button>
             )}
@@ -348,9 +356,9 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
             size="wide"
             headerContent={renderHeaderContent()}
         >
-            <div className="space-y-6">
+            <div className="space-y-4">
                 {!scannedData && !isProcessing ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                         <div className="text-center space-y-4 border-r border-gray-700 pr-4">
                             <h4 className="text-amber-400 font-bold uppercase text-sm tracking-wider">Escanear desde Móvil</h4>
                             <div className="bg-white p-3 inline-block rounded-xl shadow-2xl">
@@ -359,115 +367,95 @@ const AiImportModal: React.FC<AiImportModalProps> = ({ isOpen, onClose, cuerdas,
                             <p className="text-xs text-gray-400 max-w-[200px] mx-auto">Escanea para abrir la app y capturar la imagen directamente con tu cámara.</p>
                         </div>
                         <div className="space-y-4">
-                            <div 
-                                onClick={() => fileInputRef.current?.click()} 
-                                className="group border-2 border-dashed border-gray-600 rounded-2xl p-12 hover:border-amber-500 hover:bg-amber-500/5 transition-all cursor-pointer text-center bg-gray-700/20"
-                            >
+                            <div onClick={() => fileInputRef.current?.click()} className="group border-2 border-dashed border-gray-600 rounded-2xl p-12 hover:border-amber-500 hover:bg-amber-500/5 transition-all cursor-pointer text-center bg-gray-700/20">
                                 <PlusIcon className="w-16 h-16 text-gray-500 group-hover:text-amber-500 mx-auto mb-4 transition-colors" />
                                 <p className="text-base font-bold text-gray-200">Subir Formulario Escaneado</p>
-                                <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-                                    El sistema detectará automáticamente si es un <strong>Formulario Completo</strong> (Crea cuerda nueva) o una <strong>Nota Rápida</strong> (Asigna gallos a cuerdas existentes por Pc).
-                                </p>
+                                <p className="text-xs text-gray-500 mt-3 leading-relaxed">Detecta automáticamente Cuerdas, Dueños y Gallos.</p>
                             </div>
                             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-5">
-                        {status && (
-                            <div className={`p-3 rounded-lg text-base font-semibold text-center ${status.includes('Error') ? 'bg-red-900/40 text-red-300' : 'bg-blue-900/40 text-blue-300'}`}>
-                                {status}
-                            </div>
-                        )}
+                    <div className="space-y-4">
+                        {status && <div className="p-2 rounded bg-red-900/40 text-red-300 text-center text-sm font-bold">{status}</div>}
                         
                         {scannedData && (
-                            <div className="bg-gray-800/40 p-4 md:p-6 rounded-2xl border border-gray-700 space-y-5">
-                                <div className="flex items-center justify-between border-b border-gray-700 pb-3">
-                                    <h4 className="font-bold text-amber-400 flex items-center space-x-2 text-lg">
-                                        {scannedData.isNewCuerda ? <UsersIcon className="w-6 h-6"/> : <RoosterIcon className="w-6 h-6"/>}
-                                        <span className="uppercase tracking-wide">
-                                            {scannedData.isNewCuerda ? 'Detección: Registro Completo' : 'Detección: Nota Rápida (Solo Gallos)'}
-                                        </span>
-                                    </h4>
-                                    <span className="text-sm font-mono bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20">
-                                        {totalGallosCount} gallos detectados
-                                    </span>
+                            <div className="space-y-4">
+                                {/* BARRA DE ESTADO COMPACTA */}
+                                <div className="flex items-center justify-between bg-gray-800 rounded-lg p-2 px-4 border border-gray-700">
+                                    <div className="flex items-center space-x-3">
+                                        {scannedData.isNewCuerda ? <UsersIcon className="w-4 h-4 text-amber-400"/> : <RoosterIcon className="w-4 h-4 text-blue-400"/>}
+                                        <span className="text-sm font-bold text-white uppercase">{scannedData.isNewCuerda ? 'Registro Completo' : 'Nota Rápida'}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-4 text-xs font-mono text-gray-400">
+                                        <span>{totalGallosCount} gallos</span>
+                                        {scannedData.gallosPerFront && <span>{scannedData.gallosPerFront} frentes detectados</span>}
+                                    </div>
                                 </div>
 
-                                {scannedData.gallosPerFront && (
-                                    <div className="bg-green-900/30 p-2 rounded text-center border border-green-700/50">
-                                        <p className="text-green-400 text-base font-bold">
-                                            ¡Detectado! Se crearán {scannedData.gallosPerFront} frentes por cuerda.
-                                        </p>
-                                    </div>
-                                )}
-                                
+                                {/* FORMULARIO DE CUERDA (SOLO SI ES NUEVA) */}
                                 {scannedData.isNewCuerda && scannedData.cuerdaInfo && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-[#1a1d29] p-5 rounded-xl border border-gray-700/50 shadow-md">
-                                        <div className="space-y-1">
-                                            <span className="text-gray-400 block uppercase font-semibold">Cuerda:</span> 
-                                            <span className="text-white font-bold text-base">{scannedData.cuerdaInfo.name}</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-gray-400 block uppercase font-semibold">Dueño:</span> 
-                                            <span className="text-white text-base">{scannedData.cuerdaInfo.owner}</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-gray-400 block uppercase font-semibold">Ciudad:</span> 
-                                            <span className="text-white text-base">{scannedData.cuerdaInfo.city}</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-gray-400 block uppercase font-semibold">Placa Pc:</span> 
-                                            <span className="text-amber-400 font-mono font-bold text-base">{scannedData.cuerdaInfo.breederPlateId}</span>
-                                        </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-[#1a1d29] p-4 pt-5 rounded-xl border border-gray-700/50 shadow-md">
+                                        <InputLike label="Nombre Cuerda" value={scannedData.cuerdaInfo.name} onChange={(v) => updateCuerdaField('name', v)} />
+                                        <InputLike label="Dueño" value={scannedData.cuerdaInfo.owner} onChange={(v) => updateCuerdaField('owner', v)} />
+                                        <InputLike label="Ciudad" value={scannedData.cuerdaInfo.city} onChange={(v) => updateCuerdaField('city', v)} />
+                                        <InputLike label="Placa Pc" value={scannedData.cuerdaInfo.breederPlateId} onChange={(v) => updateCuerdaField('breederPlateId', v)} className="font-mono text-amber-400" />
                                     </div>
                                 )}
 
-                                <div className="max-h-[60vh] overflow-y-auto custom-scrollbar space-y-4 pr-2">
-                                    {scannedData.fronts.map((f, i) => (
-                                        <div key={i} className="space-y-2 bg-[#1a1d29]/40 p-4 rounded-xl">
-                                            <div className="text-xs font-black text-gray-500 uppercase flex items-center gap-2 mb-2">
-                                                <div className="h-[1px] flex-grow bg-gray-700"></div>
-                                                Frente {f.frontNumber} <span className="text-gray-500 font-normal ml-1">(Detectado en Nota)</span>
-                                                <div className="h-[1px] flex-grow bg-gray-700"></div>
-                                            </div>
-                                            {/* Cambio a Grid de 3 columnas en pantallas grandes para aprovechar el ancho */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {f.gallos.map((g, gi) => (
-                                                    <div key={gi} className="bg-gray-800/80 p-3 rounded-lg text-sm border border-gray-700 flex justify-between items-center group hover:border-amber-500/50 transition-colors shadow-sm">
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-white font-bold text-base">A: {g.ringId}</span>
-                                                                <span className="text-gray-300">| {g.color}</span>
+                                {/* LISTADO DE GALLOS EDITABLE */}
+                                <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                                    {/* GRID PARA FRENTES EN 2 COLUMNAS */}
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                        {scannedData.fronts.map((f, i) => (
+                                            <div key={i} className="bg-gray-800/40 p-3 rounded-xl border border-gray-700/50">
+                                                {/* HEADER DEL FRENTE ENCIMA DEL SEGMENTO */}
+                                                <div className="text-[11px] font-bold text-amber-500 uppercase flex items-center gap-2 mb-3">
+                                                    <div className="h-[1px] flex-grow bg-gray-700"></div>Frente {f.frontNumber}<div className="h-[1px] flex-grow bg-gray-700"></div>
+                                                </div>
+                                                
+                                                {/* GALLOS EN UNA SOLA COLUMNA DENTRO DEL FRENTE PARA MEJOR EDICIÓN */}
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {f.gallos.map((g, gi) => (
+                                                        <div key={gi} className="bg-gray-900/60 p-2 rounded-lg border border-gray-700 hover:border-amber-500/30 transition-colors shadow-sm grid grid-cols-12 gap-2 items-center">
+                                                            <div className="col-span-3">
+                                                                <InputLike placeholder="Anillo" value={g.ringId} onChange={(v) => updateGalloField(i, gi, 'ringId', v)} className="text-center font-bold" />
+                                                                <div className="mt-1"><InputLike placeholder="Pc" value={g.breederPlateId} onChange={(v) => updateGalloField(i, gi, 'breederPlateId', v)} className="text-[10px] text-center h-6" /></div>
                                                             </div>
-                                                            <div className="text-xs text-gray-400 font-mono">Pc: {g.breederPlateId}</div>
+                                                            <div className="col-span-5 space-y-1">
+                                                                <InputLike placeholder="Color" value={g.color} onChange={(v) => updateGalloField(i, gi, 'color', v)} />
+                                                                <div className="flex gap-1">
+                                                                    <InputLike placeholder="Meses" value={g.ageMonths} onChange={(v) => updateGalloField(i, gi, 'ageMonths', v)} className="text-center h-7 text-xs" />
+                                                                    <InputLike placeholder="Fenotipo" value={g.fenotipo} onChange={(v) => updateGalloField(i, gi, 'fenotipo', v)} className="text-center h-7 text-xs" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-4 text-right">
+                                                                <InputLike placeholder="Peso" value={g.weightLbsOz} onChange={(v) => updateGalloField(i, gi, 'weightLbsOz', v)} className="text-right font-mono text-amber-400 font-bold" />
+                                                                <span className="text-[9px] text-gray-500 block pr-1">Lb.Oz</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <div className="font-bold text-amber-400 text-base">{g.weightLbsOz} <span className="text-xs font-normal opacity-70">Lb.Oz</span></div>
-                                                            <div className="text-xs text-gray-400">{g.ageMonths}m | {g.fenotipo}</div>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
                         
                         {isProcessing && (
-                            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                            <div className="flex flex-col items-center justify-center py-12 space-y-4">
                                 <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
-                                <div className="text-amber-400 font-bold animate-pulse uppercase tracking-widest text-sm">Extrayendo datos con IA...</div>
+                                <div className="text-amber-400 font-bold animate-pulse uppercase tracking-widest text-sm">Procesando imagen...</div>
                             </div>
                         )}
 
-                        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
-                            <button onClick={() => {setScannedData(null); onClose();}} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-lg transition-colors">Cancelar</button>
+                        <div className="flex justify-end space-x-3 pt-3 border-t border-gray-700">
+                            <button onClick={() => {setScannedData(null); onClose();}} className="bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold py-2 px-6 rounded-lg transition-colors text-sm">Cancelar</button>
                             <button 
                                 onClick={confirmImport} 
                                 disabled={isProcessing || !scannedData} 
-                                className="bg-amber-500 hover:bg-amber-600 text-black font-black py-3 px-12 rounded-xl disabled:opacity-30 shadow-[0_0_20px_rgba(251,191,36,0.2)] transition-all transform active:scale-95"
+                                className="bg-amber-500 hover:bg-amber-600 text-black font-bold py-2 px-10 rounded-lg disabled:opacity-30 shadow-lg transition-all transform active:scale-95 text-sm"
                             >
                                 Confirmar Importación
                             </button>

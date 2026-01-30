@@ -20,9 +20,16 @@ interface PrintableProgramacionProps {
 }
 
 const PrintableProgramacion: React.FC<PrintableProgramacionProps> = ({ peleas, cuerdas, torneoName, date, day }) => {
-    const getCuerdaNameOnly = (id: string) => {
-        const full = cuerdas.find(p => p.id === id)?.name || 'Desconocido';
-        return full.replace(/\s\(F\d+\)$/, '').trim();
+    
+    const getCuerdaInfo = (id: string) => {
+        const cuerda = cuerdas.find(p => p.id === id);
+        if (!cuerda) return { name: 'Desconocido', front: '' };
+        
+        const nameOnly = cuerda.name.replace(/\s\(F\d+\)$/, '').trim();
+        const match = cuerda.name.match(/\(F(\d+)\)$/);
+        const front = match ? match[1] : '1'; // Si no tiene (Fn), asumimos F1
+        
+        return { name: nameOnly, front };
     };
 
     return (
@@ -36,60 +43,91 @@ const PrintableProgramacion: React.FC<PrintableProgramacionProps> = ({ peleas, c
                 <thead>
                     <tr>
                         <th style={{ width: '25px' }} rowSpan={2}>N°</th>
-                        <th colSpan={8}>LADO ROJO (GALLO A)</th>
+                        
+                        {/* LADO ROJO HEADERS */}
+                        <th colSpan={8} style={{borderBottom: '2px solid red'}}>LADO ROJO (GALLO A)</th>
+                        
                         <th style={{ width: '25px' }} rowSpan={2}>VS</th>
-                        <th colSpan={8}>LADO AZUL (GALLO B)</th>
+                        
+                        {/* LADO AZUL HEADERS */}
+                        <th colSpan={8} style={{borderBottom: '2px solid blue'}}>LADO AZUL (GALLO B)</th>
+                        
+                        {/* FINAL HEADERS */}
+                        <th colSpan={2}>FINAL</th>
+                        
+                        <th style={{ width: '25px' }} rowSpan={2}>N°</th>
                     </tr>
                     <tr>
-                        {/* Red Side */}
+                        {/* Red Sub-headers */}
                         <th style={{ width: '90px' }}>Cuerda</th>
-                        <th style={{ width: '45px' }}>Anillo(A)</th>
-                        <th style={{ width: '45px' }}>Placa(Pm)</th>
-                        <th style={{ width: '45px' }}>Placa(Pc)</th>
-                        <th style={{ width: '55px' }}>Color</th>
-                        <th style={{ width: '55px' }}>Fenotipo</th>
-                        <th style={{ width: '45px' }}>Tipo</th>
-                        <th style={{ width: '45px' }}>Peso</th>
+                        <th style={{ width: '20px' }}>F</th>
+                        <th style={{ width: '40px' }}>Anillo</th>
+                        <th style={{ width: '40px' }}>Placa(Pm)</th>
+                        <th style={{ width: '40px' }}>Placa(Pc)</th>
+                        <th style={{ width: '50px' }}>Color</th>
+                        <th style={{ width: '50px' }}>Fenotipo/Tipo</th>
+                        <th style={{ width: '35px' }}>Peso</th>
                         
-                        {/* Blue Side */}
+                        {/* Blue Sub-headers */}
                         <th style={{ width: '90px' }}>Cuerda</th>
-                        <th style={{ width: '45px' }}>Anillo(A)</th>
-                        <th style={{ width: '45px' }}>Placa(Pm)</th>
-                        <th style={{ width: '45px' }}>Placa(Pc)</th>
-                        <th style={{ width: '55px' }}>Color</th>
-                        <th style={{ width: '55px' }}>Fenotipo</th>
-                        <th style={{ width: '45px' }}>Tipo</th>
-                        <th style={{ width: '45px' }}>Peso</th>
+                        <th style={{ width: '20px' }}>F</th>
+                        <th style={{ width: '40px' }}>Anillo</th>
+                        <th style={{ width: '40px' }}>Placa(Pm)</th>
+                        <th style={{ width: '40px' }}>Placa(Pc)</th>
+                        <th style={{ width: '50px' }}>Color</th>
+                        <th style={{ width: '50px' }}>Fenotipo/Tipo</th>
+                        <th style={{ width: '35px' }}>Peso</th>
+
+                        {/* Final Sub-headers */}
+                        <th style={{ width: '25px' }}>G</th>
+                        <th style={{ width: '40px' }}>Tiempo</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {peleas.map((pelea) => (
-                        <tr key={pelea.id}>
-                            <td style={{ fontWeight: 'bold' }}>{pelea.fightNumber}</td>
-                            
-                            {/* ROJO */}
-                            <td style={{ textAlign: 'left', paddingLeft: '4px' }}>{getCuerdaNameOnly(pelea.roosterA.cuerdaId)}</td>
-                            <td>{pelea.roosterA.ringId}</td>
-                            <td>{pelea.roosterA.markingId}</td>
-                            <td>{pelea.roosterA.breederPlateId}</td>
-                            <td>{pelea.roosterA.color}</td>
-                            <td>{pelea.roosterA.tipoGallo}</td>
-                            <td>{pelea.roosterA.tipoEdad}</td>
-                            <td style={{ fontFamily: 'monospace' }}>{formatWeightRaw(pelea.roosterA.weight)}</td>
-                            
-                            <td style={{ fontWeight: 'bold' }}>VS</td>
-                            
-                            {/* AZUL */}
-                            <td style={{ textAlign: 'left', paddingLeft: '4px' }}>{getCuerdaNameOnly(pelea.roosterB.cuerdaId)}</td>
-                            <td>{pelea.roosterB.ringId}</td>
-                            <td>{pelea.roosterB.markingId}</td>
-                            <td>{pelea.roosterB.breederPlateId}</td>
-                            <td>{pelea.roosterB.color}</td>
-                            <td>{pelea.roosterB.tipoGallo}</td>
-                            <td>{pelea.roosterB.tipoEdad}</td>
-                            <td style={{ fontFamily: 'monospace' }}>{formatWeightRaw(pelea.roosterB.weight)}</td>
-                        </tr>
-                    ))}
+                    {peleas.map((pelea) => {
+                        const infoA = getCuerdaInfo(pelea.roosterA.cuerdaId);
+                        const infoB = getCuerdaInfo(pelea.roosterB.cuerdaId);
+
+                        return (
+                            <tr key={pelea.id}>
+                                <td style={{ fontWeight: 'bold' }}>{pelea.fightNumber}</td>
+                                
+                                {/* ROJO */}
+                                <td style={{ textAlign: 'left', paddingLeft: '2px', fontSize: '7pt' }}>{infoA.name}</td>
+                                <td>{infoA.front}</td>
+                                <td>{pelea.roosterA.ringId}</td>
+                                <td>{pelea.roosterA.markingId}</td>
+                                <td>{pelea.roosterA.breederPlateId}</td>
+                                <td>{pelea.roosterA.color}</td>
+                                <td style={{ lineHeight: '1' }}>
+                                    <div>{pelea.roosterA.tipoGallo}</div>
+                                    <div style={{ fontSize: '6pt', marginTop: '1px' }}>{pelea.roosterA.tipoEdad}</div>
+                                </td>
+                                <td style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{formatWeightRaw(pelea.roosterA.weight)}</td>
+                                
+                                <td style={{ fontWeight: 'bold' }}>VS</td>
+                                
+                                {/* AZUL */}
+                                <td style={{ textAlign: 'left', paddingLeft: '2px', fontSize: '7pt' }}>{infoB.name}</td>
+                                <td>{infoB.front}</td>
+                                <td>{pelea.roosterB.ringId}</td>
+                                <td>{pelea.roosterB.markingId}</td>
+                                <td>{pelea.roosterB.breederPlateId}</td>
+                                <td>{pelea.roosterB.color}</td>
+                                <td style={{ lineHeight: '1' }}>
+                                    <div>{pelea.roosterB.tipoGallo}</div>
+                                    <div style={{ fontSize: '6pt', marginTop: '1px' }}>{pelea.roosterB.tipoEdad}</div>
+                                </td>
+                                <td style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{formatWeightRaw(pelea.roosterB.weight)}</td>
+
+                                {/* FINAL */}
+                                <td></td> {/* G */}
+                                <td></td> {/* Tiempo */}
+                                
+                                <td style={{ fontWeight: 'bold' }}>{pelea.fightNumber}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
 
